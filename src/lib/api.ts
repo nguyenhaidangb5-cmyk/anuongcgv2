@@ -1,6 +1,6 @@
 import { Restaurant } from '@/types/wordpress';
 
-const API_URL = process.env.NEXT_PUBLIC_WORDPRESS_API_URL || process.env.WORDPRESS_API_URL || 'https://anuongcangiuoc.org/wp-json';
+const API_URL = process.env.NEXT_PUBLIC_WORDPRESS_API_URL || process.env.WORDPRESS_API_URL || 'https://admin.anuongcangiuoc.org/wp-json';
 
 export interface FetchRestaurantsParams {
     per_page?: number;
