@@ -1,8 +1,7 @@
-import type { NextConfig } from "next";
-
-const nextConfig: NextConfig = {
+/** @type {import('next').NextConfig} */
+const nextConfig = {
   images: {
-    // Quan trọng: Tắt tối ưu hóa để trình duyệt tự tải ảnh (tránh bị server chặn)
+    // LỆNH QUAN TRỌNG NHẤT: Tắt bộ lọc Vercel để ảnh hiện ngay
     unoptimized: true, 
     remotePatterns: [
       {
@@ -31,7 +30,7 @@ const nextConfig: NextConfig = {
     ],
     dangerouslyAllowSVG: true,
   },
-  // Bỏ qua lỗi check type để ưu tiên build thành công
+  // Bỏ qua lỗi build để web chạy mượt
   typescript: {
     ignoreBuildErrors: true,
   },
