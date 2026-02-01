@@ -5,6 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Restaurant, BADGE_LABELS } from '@/types/wordpress';
 import { useParams, useRouter } from 'next/navigation';
+import { fetchRestaurantBySlug } from '@/lib/api';
 
 const getBadgeStyle = (label: string) => {
     const l = label.toLowerCase();
@@ -54,13 +55,8 @@ export default function RestaurantDetailPage() {
     useEffect(() => {
         async function fetchData() {
             try {
-                const API_URL = process.env.NEXT_PUBLIC_WORDPRESS_API_URL || 'https://anuongcangiuoc.org/wp-json';
-                const response = await fetch(`${API_URL}/wp/v2/quan_an?slug=${slug}&_embed=1`);
-                const result = await response.json();
-
-                if (result.length > 0) {
-                    setData(result[0]);
-                }
+                const result = await fetchRestaurantBySlug(slug);
+                setData(result);
             } catch (error) {
                 console.error('Error fetching restaurant:', error);
             } finally {

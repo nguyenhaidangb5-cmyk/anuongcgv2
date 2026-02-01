@@ -23,7 +23,7 @@ export default function ContactPage() {
 
         try {
             // Gửi về endpoint WordPress (sẽ tạo ở bước sau)
-            const res = await fetch(`${process.env.NEXT_PUBLIC_WORDPRESS_API_URL || 'https://anuongcangiuoc.org/wp-json'}/can-giuoc-food/v1/contact`, {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_WORDPRESS_API_URL || 'https://admin.anuongcangiuoc.org/wp-json'}/can-giuoc-food/v1/contact`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -63,8 +63,8 @@ export default function ContactPage() {
                             <button
                                 onClick={() => setActiveTab('reviewer')}
                                 className={`py-4 font-bold text-sm md:text-base transition-colors ${activeTab === 'reviewer'
-                                        ? 'bg-orange-500 text-white'
-                                        : 'bg-white text-gray-500 hover:bg-gray-50'
+                                    ? 'bg-orange-500 text-white'
+                                    : 'bg-white text-gray-500 hover:bg-gray-50'
                                     }`}
                             >
                                 🦸 Người chỉ điểm
@@ -72,8 +72,8 @@ export default function ContactPage() {
                             <button
                                 onClick={() => setActiveTab('owner')}
                                 className={`py-4 font-bold text-sm md:text-base transition-colors ${activeTab === 'owner'
-                                        ? 'bg-orange-500 text-white'
-                                        : 'bg-white text-gray-500 hover:bg-gray-50'
+                                    ? 'bg-orange-500 text-white'
+                                    : 'bg-white text-gray-500 hover:bg-gray-50'
                                     }`}
                             >
                                 👨‍🍳 Dành cho Chủ quán

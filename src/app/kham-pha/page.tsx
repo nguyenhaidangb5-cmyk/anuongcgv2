@@ -4,6 +4,7 @@ import { Navbar } from '@/components/Navbar';
 import { RestaurantCard } from '@/components/RestaurantCard';
 import { Restaurant } from '@/types/wordpress';
 import { useSearchParams } from 'next/navigation';
+import { fetchRestaurants } from '@/lib/api';
 
 import { Suspense } from 'react';
 
@@ -32,25 +33,12 @@ function ExplorePageContent() {
         async function fetchData() {
             setLoading(true);
             try {
-                const API_URL = process.env.NEXT_PUBLIC_WORDPRESS_API_URL || 'https://anuongcangiuoc.org/wp-json';
-                const params = new URLSearchParams({
-                    per_page: '200',
-                    _embed: '1'
+                const data = await fetchRestaurants({
+                    per_page: 200,
+                    search: searchKeyword,
+                    orderby: sortBy === 'newest' ? 'date' : undefined,
+                    order: sortBy === 'newest' ? 'desc' : undefined
                 });
-
-                // Search
-                if (searchKeyword) {
-                    params.append('search', searchKeyword);
-                }
-
-                // Sort
-                if (sortBy === 'newest') {
-                    params.append('orderby', 'date');
-                    params.append('order', 'desc');
-                }
-
-                const response = await fetch(`${API_URL}/wp/v2/quan_an?${params.toString()}`);
-                const data = await response.json();
                 setRestaurants(data);
             } catch (error) {
                 console.error('Error fetching restaurants:', error);

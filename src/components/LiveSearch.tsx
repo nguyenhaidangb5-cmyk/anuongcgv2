@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Restaurant } from '@/types/wordpress';
+import { fetchRestaurants, fixWpUrl } from '@/lib/api';
 
 interface LiveSearchProps {
     placeholder?: string;
@@ -36,9 +37,10 @@ export const LiveSearch: React.FC<LiveSearchProps> = ({
         // Set new timer (300ms debounce)
         debounceTimer.current = setTimeout(async () => {
             try {
-                const API_URL = process.env.NEXT_PUBLIC_WORDPRESS_API_URL || 'https://anuongcangiuoc.org/wp-json';
-                const response = await fetch(`${API_URL}/wp/v2/quan_an?search=${encodeURIComponent(keyword)}&per_page=5`);
-                const data = await response.json();
+                const data = await fetchRestaurants({
+                    search: keyword,
+                    per_page: 5
+                });
                 setResults(data);
                 setShowDropdown(true);
             } catch (error) {

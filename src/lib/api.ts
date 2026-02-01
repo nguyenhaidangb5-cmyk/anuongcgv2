@@ -2,6 +2,15 @@ import { Restaurant } from '@/types/wordpress';
 
 const API_URL = process.env.NEXT_PUBLIC_WORDPRESS_API_URL || process.env.WORDPRESS_API_URL || 'https://admin.anuongcangiuoc.org/wp-json';
 
+/**
+ * Hàm hỗ trợ sửa lỗi URL từ WordPress database cũ
+ * Chuyển các link từ anuongcangiuoc.org sang admin.anuongcangiuoc.org
+ */
+export function fixWpUrl(url: string | null | undefined): string {
+    if (!url) return '';
+    return url.replace(/https?:\/\/anuongcangiuoc\.org/g, 'https://admin.anuongcangiuoc.org');
+}
+
 export interface FetchRestaurantsParams {
     per_page?: number;
     page?: number;
@@ -51,7 +60,17 @@ export async function fetchRestaurants(params: FetchRestaurantsParams = {}): Pro
         }
 
         const data = await response.json();
-        return data as Restaurant[];
+
+        // Fix URLs cho từng quán ăn
+        return (data as Restaurant[]).map(r => ({
+            ...r,
+            featured_media_url: fixWpUrl(r.featured_media_url),
+            thumbnail_url: fixWpUrl(r.thumbnail_url),
+            content: {
+                ...r.content,
+                rendered: fixWpUrl(r.content?.rendered)
+            }
+        }));
     } catch (error) {
         console.error('Fetch error:', error);
         return [];
@@ -74,7 +93,18 @@ export async function fetchRestaurantBySlug(slug: string): Promise<Restaurant | 
         }
 
         const data = await response.json();
-        return data.length > 0 ? data[0] : null;
+        if (data.length === 0) return null;
+
+        const r = data[0] as Restaurant;
+        return {
+            ...r,
+            featured_media_url: fixWpUrl(r.featured_media_url),
+            thumbnail_url: fixWpUrl(r.thumbnail_url),
+            content: {
+                ...r.content,
+                rendered: fixWpUrl(r.content?.rendered)
+            }
+        };
     } catch (error) {
         console.error('Fetch error:', error);
         return null;
