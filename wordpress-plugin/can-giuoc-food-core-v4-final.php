@@ -16,7 +16,9 @@ class Can_Giuoc_Food_Core {
     public function __construct() {
         add_action( 'init', array( $this, 'register_cpt_quan_an' ) );
         add_action( 'init', array( $this, 'register_taxonomies' ) );
+        add_action( 'init', array( $this, 'register_cpt_submission' ) );
         add_action( 'add_meta_boxes', array( $this, 'add_custom_meta_boxes' ) );
+        add_action( 'add_meta_boxes', array( $this, 'add_submission_meta_boxes' ) );
         add_action( 'save_post', array( $this, 'save_custom_meta_data' ) );
         add_action( 'rest_api_init', array( $this, 'register_rest_fields' ) );
         add_action( 'rest_api_init', array( $this, 'register_contact_endpoint' ) );
@@ -68,6 +70,37 @@ class Can_Giuoc_Food_Core {
         );
 
         register_post_type( 'quan_an', $args );
+    }
+
+    /**
+     * 1b. Đăng ký CPT cho Tin nhắn Liên hệ/Đăng ký
+     */
+    public function register_cpt_submission() {
+        $labels = array(
+            'name'                  => 'Liên Hệ/Đăng Ký',
+            'singular_name'         => 'Tin nhắn',
+            'menu_name'             => 'Liên Hệ/Đăng Ký',
+            'add_new'               => 'Thêm mới',
+            'all_items'             => 'Tất cả tin nhắn',
+        );
+
+        $args = array(
+            'labels'                => $labels,
+            'supports'              => array( 'title' ),
+            'public'                => false,
+            'show_ui'               => true,
+            'show_in_menu'          => true,
+            'menu_position'         => 6,
+            'menu_icon'             => 'dashicons-email-alt',
+            'has_archive'           => false,
+            'capability_type'       => 'post',
+            'capabilities'          => array(
+                'create_posts' => false, // Không cho phép admin tạo tay tin nhắn
+            ),
+            'map_meta_cap'          => true,
+        );
+
+        register_post_type( 'cg_submission', $args );
     }
 
     /**
@@ -163,6 +196,65 @@ class Can_Giuoc_Food_Core {
             'normal',
             'high'
         );
+    }
+
+    /**
+     * Meta Box cho Submission
+     */
+    public function add_submission_meta_boxes() {
+        add_meta_box(
+            'submission_detail_meta_box',
+            '📩 Chi tiết Tin nhắn',
+            array( $this, 'render_submission_meta_box' ),
+            'cg_submission',
+            'normal',
+            'high'
+        );
+    }
+
+    public function render_submission_meta_box( $post ) {
+        $type = get_post_meta( $post->ID, '_sub_type', true );
+        $store_name = get_post_meta( $post->ID, '_sub_store_name', true );
+        $address = get_post_meta( $post->ID, '_sub_address', true );
+        $phone = get_post_meta( $post->ID, '_sub_phone', true );
+        $food = get_post_meta( $post->ID, '_sub_recommend_food', true );
+        $message = get_post_meta( $post->ID, '_sub_message', true );
+        ?>
+        <table class="form-table">
+            <tr>
+                <th>Loại yêu cầu:</th>
+                <td><strong><?php echo ($type === 'owner' ? 'Chủ quán đăng ký' : 'Người dùng giới thiệu'); ?></strong></td>
+            </tr>
+            <tr>
+                <th>Tên quán:</th>
+                <td><?php echo esc_html( $store_name ); ?></td>
+            </tr>
+            <tr>
+                <th>Địa chỉ:</th>
+                <td><?php echo esc_html( $address ); ?></td>
+            </tr>
+            <?php if ($phone): ?>
+            <tr>
+                <th>Số điện thoại:</th>
+                <td><a href="tel:<?php echo esc_attr($phone); ?>"><?php echo esc_html( $phone ); ?></a></td>
+            </tr>
+            <?php endif; ?>
+            <?php if ($food): ?>
+            <tr>
+                <th>Món ngon:</th>
+                <td><?php echo esc_html( $food ); ?></td>
+            </tr>
+            <?php endif; ?>
+            <tr>
+                <th>Lời nhắn:</th>
+                <td><?php echo nl2br( esc_html( $message ) ); ?></td>
+            </tr>
+            <tr>
+                <th>Thời gian:</th>
+                <td><?php echo get_the_date( 'd/m/Y H:i', $post->ID ); ?></td>
+            </tr>
+        </table>
+        <?php
     }
 
     public function render_meta_box( $post ) {
@@ -548,6 +640,22 @@ class Can_Giuoc_Food_Core {
         
         $subject = "[Liên Hệ Mới] Từ " . ($type === 'owner' ? 'CHỦ QUÁN' : 'NGƯỜI REVIEW');
         
+        // --- LƯU VÀO DATABASE ---
+        $post_title = ($type === 'owner' ? '[Đăng ký] ' : '[Review] ') . $store_name;
+        $submission_id = wp_insert_post( array(
+            'post_title'   => $post_title,
+            'post_type'    => 'cg_submission',
+            'post_status'  => 'publish',
+            'meta_input'   => array(
+                '_sub_type'           => $type,
+                '_sub_store_name'     => $store_name,
+                '_sub_address'        => $address,
+                '_sub_message'        => $message,
+                '_sub_phone'          => isset($params['phone']) ? sanitize_text_field($params['phone']) : '',
+                '_sub_recommend_food' => isset($params['recommend_food']) ? sanitize_text_field($params['recommend_food']) : '',
+            ),
+        ));
+
         $body = "Có thông tin mới từ website:\n\n";
         $body .= "Loại: " . ($type === 'owner' ? 'Chủ quán đăng ký' : 'Người dùng giới thiệu') . "\n";
         $body .= "Tên quán: $store_name\n";
@@ -562,13 +670,14 @@ class Can_Giuoc_Food_Core {
         }
         
         $body .= "Lời nhắn: $message\n";
+        $body .= "\nXem chi tiết trong Admin: " . admin_url('post.php?post=' . $submission_id . '&action=edit');
 
         $admin_email = get_option( 'admin_email' );
         wp_mail( $admin_email, $subject, $body );
         
         return new WP_REST_Response( array( 
             'success' => true, 
-            'message' => 'Đã nhận thông tin'
+            'message' => 'Đã nhận thông tin và lưu vào hệ thống'
         ), 200 );
     }
 
