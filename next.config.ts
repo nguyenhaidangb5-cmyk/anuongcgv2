@@ -2,10 +2,17 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   images: {
+    // Quan trọng: Tắt tối ưu hóa để trình duyệt tự tải ảnh (tránh bị server chặn)
+    unoptimized: true, 
     remotePatterns: [
       {
         protocol: 'https',
-        hostname: 'admin.anuongcangiuoc.org', // <--- QUAN TRỌNG NHẤT: Nơi chứa ảnh
+        hostname: 'admin.anuongcangiuoc.org',
+        pathname: '/**',
+      },
+      {
+        protocol: 'http',
+        hostname: 'admin.anuongcangiuoc.org',
         pathname: '/**',
       },
       {
