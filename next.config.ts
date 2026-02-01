@@ -5,11 +5,13 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       {
         protocol: 'https',
-        hostname: 'admin.anuongcangiuoc.org', // Nơi chứa ảnh gốc
+        hostname: 'admin.anuongcangiuoc.org', // <--- QUAN TRỌNG NHẤT: Nơi chứa ảnh
+        pathname: '/**',
       },
       {
         protocol: 'https',
-        hostname: 'anuongcangiuoc.org', // Dự phòng
+        hostname: 'anuongcangiuoc.org',
+        pathname: '/**',
       },
       {
         protocol: 'https',
@@ -22,8 +24,9 @@ const nextConfig: NextConfig = {
     ],
     dangerouslyAllowSVG: true,
   },
+  // Bỏ qua lỗi check type để ưu tiên build thành công
   typescript: {
-    ignoreBuildErrors: true, // Bỏ qua lỗi check type để ưu tiên chạy
+    ignoreBuildErrors: true,
   },
   eslint: {
     ignoreDuringBuilds: true,
