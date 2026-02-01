@@ -1,7 +1,7 @@
 "use client";
 import React from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
+// import Image from 'next/image'; // Đã tắt Image của Next.js để dùng img thường
 import { Restaurant, BADGE_LABELS } from '@/types/wordpress';
 
 interface RestaurantCardProps {
@@ -59,17 +59,17 @@ export const RestaurantCard: React.FC<RestaurantCardProps> = ({ data }) => {
             href={`/quan-an/${data.slug}`}
             className="group bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex flex-row md:flex-col h-28 md:h-full overflow-hidden block"
         >
-            {/* Image Container - Mobile: Fixed width / Desktop: Full width height */}
+            {/* Image Container */}
             <div className="relative w-28 md:w-full h-full md:h-48 flex-shrink-0">
-                <Image
-                    unoptimized // <--- ĐÃ THÊM LỆNH SỬA LỖI ẢNH Ở ĐÂY
+                {/* SỬ DỤNG THẺ IMG THƯỜNG ĐỂ CHẮC CHẮN HIỆN ẢNH */}
+                <img
                     src={imageUrl}
                     alt={data.title.rendered}
-                    fill
-                    className="object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
+                    className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
+                    loading="lazy"
                 />
 
-                {/* Rating Badge - Adjusted position */}
+                {/* Rating Badge */}
                 {averageRating && (
                     <div className="absolute bottom-1 right-1 md:top-3 md:right-3 md:bottom-auto bg-white/90 md:bg-orange-500 md:text-white text-orange-600 px-1.5 py-0.5 md:px-2 md:py-1 rounded md:rounded-lg font-bold text-[10px] md:text-xs shadow-sm flex items-center gap-1 backdrop-blur-sm">
                         <span>★</span>
