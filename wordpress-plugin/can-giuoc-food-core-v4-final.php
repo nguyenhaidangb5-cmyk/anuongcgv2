@@ -25,6 +25,10 @@ class Can_Giuoc_Food_Core {
         add_filter( 'rest_quan_an_query', array( $this, 'custom_rest_query' ), 10, 2 );
         add_action( 'admin_menu', array( $this, 'register_import_menu' ) );
         add_filter( 'rest_quan_an_collection_params', array( $this, 'relax_rest_limit' ), 10, 1 );
+        
+        // --- 8. STICKY POST SUPPORT ---
+        add_action( 'admin_footer-post.php', array( $this, 'add_sticky_support_to_cpt' ) );
+        add_action( 'admin_footer-post-new.php', array( $this, 'add_sticky_support_to_cpt' ) );
     }
 
     /**
@@ -463,6 +467,13 @@ class Can_Giuoc_Food_Core {
             $value = isset( $_POST[ $field ] ) ? '1' : '0';
             update_post_meta( $post_id, '_' . $field, $value );
         }
+
+        // --- XỬ LÝ STICKY POST ---
+        if ( isset( $_POST['sticky'] ) ) {
+            stick_post( $post_id );
+        } else {
+            unstick_post( $post_id );
+        }
     }
 
     /**
@@ -800,29 +811,26 @@ class Can_Giuoc_Food_Core {
                 ),
             ));
 
-            if ( is_wp_error( $post_id ) ) {
+            if ( $post_id && ! is_wp_error( $post_id ) ) {
+                $count_success++;
+                
+                // Taxonomy: Chưa phân loại
+                if ( ! term_exists( 'Chưa phân loại', 'food_type' ) ) {
+                    wp_insert_term( 'Chưa phân loại', 'food_type' );
+                }
+                wp_set_object_terms( $post_id, 'Chưa phân loại', 'food_type' );
+
+                // Taxonomy: Khu vực (Auto-detect from Address)
+                if ( ! empty( $address ) ) {
+                    $this->auto_assign_region( $post_id, $address );
+                }
+
+                // Image Sideload
+                if ( ! empty( $image_url ) ) {
+                    $this->sideload_image( $image_url, $post_id );
+                }
+            } else {
                 $count_error++;
-                continue;
-            }
-
-            // Taxonomy: Chưa phân loại
-            if ( ! term_exists( 'Chưa phân loại', 'food_type' ) ) {
-                wp_insert_term( 'Chưa phân loại', 'food_type' );
-            }
-            wp_set_object_terms( $post_id, 'Chưa phân loại', 'food_type' );
-
-            // Taxonomy: Khu vực (Auto-detect from Address)
-            if ( ! empty( $address ) ) {
-                $this->auto_assign_region( $post_id, $address );
-            }
-
-            // Image Sideload
-            if ( ! empty( $image_url ) ) {
-                $this->sideload_image( $image_url, $post_id );
-            }
-
-            $count_success++;
-        }
 
         fclose( $file_handle );
 
