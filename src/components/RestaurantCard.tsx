@@ -62,6 +62,7 @@ export const RestaurantCard: React.FC<RestaurantCardProps> = ({ data }) => {
             {/* Image Container - Mobile: Fixed width / Desktop: Full width height */}
             <div className="relative w-28 md:w-full h-full md:h-48 flex-shrink-0">
                 <Image
+                    unoptimized // <--- ĐÃ THÊM LỆNH SỬA LỖI ẢNH Ở ĐÂY
                     src={imageUrl}
                     alt={data.title.rendered}
                     fill
