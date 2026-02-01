@@ -51,7 +51,7 @@ export async function fetchRestaurants(params: FetchRestaurantsParams = {}): Pro
 
     try {
         const response = await fetch(url, {
-            next: { revalidate: 60 } // Cache 60 giây
+            next: { revalidate: 3600 } // Cache 1 giờ
         });
 
         if (!response.ok) {
@@ -85,7 +85,7 @@ export async function fetchRestaurantBySlug(slug: string): Promise<Restaurant | 
 
     try {
         const response = await fetch(url, {
-            next: { revalidate: 60 }
+            next: { revalidate: 3600 }
         });
 
         if (!response.ok) {
@@ -123,16 +123,28 @@ export async function fetchNewestRestaurants(limit: number = 6): Promise<Restaur
 }
 
 /**
- * Fetch quán top rated (có rating cao nhất)
+ * Hàm shuffle mảng (Fisher-Yates algorithm)
+ */
+function shuffleArray<T>(array: T[]): T[] {
+    const shuffled = [...array];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled;
+}
+
+/**
+ * Fetch quán top rated (có rating >= 4.5, sau đó shuffle ngẫu nhiên)
  */
 export async function fetchTopRatedRestaurants(limit: number = 5): Promise<Restaurant[]> {
-    // Lấy nhiều hơn để sort client-side
+    // Lấy nhiều quán để có đủ dữ liệu
     const restaurants = await fetchRestaurants({
         per_page: 200
     });
 
-    // Sort theo rating trung bình
-    const sorted = restaurants
+    // Tính rating trung bình và lọc >= 4.5
+    const highRatedRestaurants = restaurants
         .map(r => {
             const ratings = [
                 Number(r.rating_food || 0),
@@ -147,8 +159,43 @@ export async function fetchTopRatedRestaurants(limit: number = 5): Promise<Resta
 
             return { ...r, avgRating };
         })
-        .sort((a, b) => b.avgRating - a.avgRating)
-        .slice(0, limit);
+        .filter(r => r.avgRating >= 4.5); // Chỉ lấy quán có rating >= 4.5
 
-    return sorted;
+    // Shuffle danh sách và lấy số lượng cần thiết
+    const shuffled = shuffleArray(highRatedRestaurants);
+    return shuffled.slice(0, limit);
+}
+
+/**
+ * Fetch quán được đánh dấu Sticky trong WordPress
+ */
+export async function fetchStickyRestaurants(limit: number = 8): Promise<Restaurant[]> {
+    const url = `${API_URL}/wp/v2/quan_an?sticky=true&per_page=${limit}&_embed=1`;
+
+    try {
+        const response = await fetch(url, {
+            next: { revalidate: 3600 }
+        });
+
+        if (!response.ok) {
+            console.error('API Error:', response.status, response.statusText);
+            return [];
+        }
+
+        const data = await response.json();
+
+        // Fix URLs cho từng quán ăn
+        return (data as Restaurant[]).map(r => ({
+            ...r,
+            featured_media_url: fixWpUrl(r.featured_media_url),
+            thumbnail_url: fixWpUrl(r.thumbnail_url),
+            content: {
+                ...r.content,
+                rendered: fixWpUrl(r.content?.rendered)
+            }
+        }));
+    } catch (error) {
+        console.error('Fetch error:', error);
+        return [];
+    }
 }

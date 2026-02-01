@@ -2,14 +2,17 @@ import Link from 'next/link';
 import { Navbar } from '@/components/Navbar';
 import { RestaurantCard } from '@/components/RestaurantCard';
 import { HeroSection } from '@/components/HeroSection';
-import { fetchRestaurants, fetchTopRatedRestaurants, fetchNewestRestaurants } from '@/lib/api';
+import { fetchRestaurants, fetchTopRatedRestaurants, fetchNewestRestaurants, fetchStickyRestaurants } from '@/lib/api';
 import Image from 'next/image';
+
+// Revalidate trang chủ mỗi 1 giờ
+export const revalidate = 3600;
 
 export default async function Home() {
   // Fetch dữ liệu thật từ WordPress
-  const featuredRestaurants = await fetchRestaurants({ per_page: 8 });
   const topRatedRestaurants = await fetchTopRatedRestaurants(5);
   const newestRestaurants = await fetchNewestRestaurants(6);
+  const stickyRestaurants = await fetchStickyRestaurants(8);
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
@@ -184,9 +187,9 @@ export default async function Home() {
             </Link>
           </div>
 
-          {featuredRestaurants.length > 0 ? (
+          {stickyRestaurants.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-              {featuredRestaurants.map((restaurant) => (
+              {stickyRestaurants.map((restaurant) => (
                 <RestaurantCard key={restaurant.id} data={restaurant} />
               ))}
             </div>
