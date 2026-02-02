@@ -27,8 +27,7 @@ class Can_Giuoc_Food_Core {
         add_filter( 'rest_quan_an_collection_params', array( $this, 'relax_rest_limit' ), 10, 1 );
         
         // --- 8. STICKY POST SUPPORT ---
-        add_action( 'admin_footer-post.php', array( $this, 'add_sticky_support_to_cpt' ) );
-        add_action( 'admin_footer-post-new.php', array( $this, 'add_sticky_support_to_cpt' ) );
+        add_action( 'add_meta_boxes', array( $this, 'add_sticky_support_to_cpt' ) );
     }
 
     /**
@@ -480,6 +479,22 @@ class Can_Giuoc_Food_Core {
      * 4. REST API Fields - TỐI ƯU VỚI thumbnail_url & formatted_price
      */
     public function register_rest_fields() {
+        // Sticky status
+        register_rest_field( 'quan_an', 'sticky', array(
+            'get_callback' => function( $object ) {
+                return is_sticky( $object['id'] );
+            },
+            'update_callback' => function( $value, $post ) {
+                if ( $value ) {
+                    stick_post( $post->ID );
+                } else {
+                    unstick_post( $post->ID );
+                }
+                return true;
+            },
+            'schema' => array( 'type' => 'boolean' ),
+        ));
+
         // Text fields
         $fields = array( 'phone', 'address', 'hours', 'map_link', 'rating_food', 'rating_price', 'rating_service', 'rating_ambiance' );
         foreach ( $fields as $field ) {
@@ -906,7 +921,7 @@ class Can_Giuoc_Food_Core {
         
         add_meta_box(
             'quan_an_sticky_meta',
-            'Nổi bật (Sticky)',
+            'Stick to the top of the blog (Ghim bài viết)',
             array( $this, 'render_sticky_meta_box' ),
             'quan_an',
             'side',
@@ -919,9 +934,9 @@ class Can_Giuoc_Food_Core {
         ?>
         <label>
             <input type="checkbox" name="sticky" value="sticky" <?php checked( $is_sticky ); ?> />
-            Ghim vào đầu blog (Nổi bật)
+            Stick to the top of the blog (Ghim lên đầu trang)
         </label>
-        <p class="description">Bài viết sẽ hiển thị trong mục "Địa điểm Nổi bật" trên trang chủ.</p>
+        <p class="description">Bài viết sẽ hiển thị ở đầu danh sách trên trang chủ.</p>
         <?php
     }
 }
