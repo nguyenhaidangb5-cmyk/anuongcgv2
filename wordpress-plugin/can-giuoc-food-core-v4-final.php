@@ -637,6 +637,18 @@ class Can_Giuoc_Food_Core {
             $args['orderby'] = 'date';
             $args['order'] = 'DESC';
         }
+        
+        // Handle "sticky=true" parameter for CPT
+        if ( isset( $request['sticky'] ) && $request['sticky'] === 'true' ) {
+            $sticky_posts = get_option( 'sticky_posts' );
+            if ( empty( $sticky_posts ) ) {
+                // Return no results if no sticky posts
+                $args['post__in'] = array( 0 );
+            } else {
+                $args['post__in'] = $sticky_posts;
+                $args['ignore_sticky_posts'] = true; // Avoid double handling
+            }
+        }
 
         return $args;
     }
