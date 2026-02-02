@@ -51,7 +51,7 @@ export async function fetchRestaurants(params: FetchRestaurantsParams = {}): Pro
 
     try {
         const response = await fetch(url, {
-            next: { revalidate: 3600 } // Cache 1 giờ
+            next: { revalidate: 10 } // Cache 10 giây
         });
 
         if (!response.ok) {
@@ -85,7 +85,7 @@ export async function fetchRestaurantBySlug(slug: string): Promise<Restaurant | 
 
     try {
         const response = await fetch(url, {
-            next: { revalidate: 3600 }
+            next: { revalidate: 10 }
         });
 
         if (!response.ok) {
@@ -174,7 +174,7 @@ export async function fetchStickyRestaurants(limit: number = 8): Promise<Restaur
 
     try {
         const response = await fetch(url, {
-            next: { revalidate: 3600 }
+            next: { revalidate: 10 }
         });
 
         if (!response.ok) {

@@ -6,7 +6,7 @@ import { fetchRestaurants, fetchTopRatedRestaurants, fetchNewestRestaurants, fet
 import Image from 'next/image';
 
 // Revalidate trang chủ mỗi 1 giờ
-export const revalidate = 3600;
+export const revalidate = 10;
 
 export default async function Home() {
   // Fetch dữ liệu thật từ WordPress
