@@ -801,22 +801,20 @@ class Can_Giuoc_Food_Core {
             return '<div class="notice notice-error"><p>Lỗi: Không tìm thấy cột <strong>Name</strong> trong file CSV. Vui lòng kiểm tra dòng tiêu đề.</p></div>';
         }
 
+        $count_total = 0;
         $count_success = 0;
-        $count_skip = 0;
+        $count_duplicate = 0;
+        $count_empty = 0;
         $count_error = 0;
 
         while ( ( $row = fgetcsv( $file_handle ) ) !== false ) {
+            $count_total++;
+            
             // Lấy dữ liệu dựa trên index tìm được
             $name = isset($row[$idx_name]) ? sanitize_text_field( $row[$idx_name] ) : '';
             
             if ( empty( $name ) ) {
-                $count_skip++;
-                continue;
-            }
-
-            // Kiểm tra trùng tên
-            if ( $this->post_exists_by_title( $name ) ) {
-                $count_skip++;
+                $count_empty++;
                 continue;
             }
 
@@ -825,6 +823,19 @@ class Can_Giuoc_Food_Core {
             $rating_raw = ($idx_rating !== false && isset($row[$idx_rating])) ? $row[$idx_rating] : '0';
             $image_url  = ($idx_image !== false && isset($row[$idx_image])) ? esc_url_raw( $row[$idx_image] ) : '';
             $map_link   = ($idx_map !== false && isset($row[$idx_map])) ? esc_url_raw( $row[$idx_map] ) : '';
+
+            // KIỂM TRA TRÙNG LẶP - Nâng cao
+            // 1. Kiểm tra trùng theo Title
+            if ( $this->post_exists_by_title( $name ) ) {
+                $count_duplicate++;
+                continue;
+            }
+            
+            // 2. Kiểm tra trùng theo MapLink (nếu có)
+            if ( ! empty( $map_link ) && $this->post_exists_by_map_link( $map_link ) ) {
+                $count_duplicate++;
+                continue;
+            }
 
             // Tạo Post
             $post_id = wp_insert_post( array(
@@ -863,12 +874,47 @@ class Can_Giuoc_Food_Core {
         
         fclose( $file_handle );
 
-        return '<div class="notice notice-success"><p>Đã nhập thành công: <strong>' . $count_success . '</strong> quán. Bỏ qua (trùng/rỗng): ' . $count_skip . '. Lỗi: ' . $count_error . '.</p></div>';
+        // Báo cáo chi tiết
+        $message = '<div class="notice notice-success"><p><strong>📊 Kết quả Import:</strong></p>';
+        $message .= '<ul style="margin-left: 20px; list-style: disc;">';
+        $message .= '<li>Tổng số dòng trong CSV: <strong>' . $count_total . '</strong></li>';
+        $message .= '<li>✅ Đã thêm mới: <strong style="color: green;">' . $count_success . '</strong></li>';
+        $message .= '<li>⏭️ Đã bỏ qua (Trùng lặp): <strong style="color: orange;">' . $count_duplicate . '</strong></li>';
+        $message .= '<li>⚠️ Dòng rỗng: <strong>' . $count_empty . '</strong></li>';
+        $message .= '<li>❌ Lỗi: <strong style="color: red;">' . $count_error . '</strong></li>';
+        $message .= '</ul></div>';
+        
+        return $message;
     }
 
     private function post_exists_by_title( $title ) {
         $post = get_page_by_title( $title, OBJECT, 'quan_an' );
         return $post ? true : false;
+    }
+
+    /**
+     * Kiểm tra xem đã có quán nào với map_link này chưa
+     */
+    private function post_exists_by_map_link( $map_link ) {
+        if ( empty( $map_link ) ) {
+            return false;
+        }
+        
+        $args = array(
+            'post_type'      => 'quan_an',
+            'posts_per_page' => 1,
+            'meta_query'     => array(
+                array(
+                    'key'     => '_cg_map_link',
+                    'value'   => $map_link,
+                    'compare' => '='
+                )
+            ),
+            'fields'         => 'ids'
+        );
+        
+        $query = new WP_Query( $args );
+        return $query->have_posts();
     }
 
     private function auto_assign_region( $post_id, $address ) {
