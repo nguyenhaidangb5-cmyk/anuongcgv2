@@ -906,10 +906,11 @@ class Can_Giuoc_Food_Core {
         }
         
         // Loại bỏ các pattern như: =w400-h300, =s120-c, =w1200, etc.
-        $cleaned = preg_replace( '/=w\d+(-h\d+)?(-[a-z])?/i', '', $url );
-        $cleaned = preg_replace( '/=s\d+(-[a-z])?/i', '', $cleaned );
+        // Chỉ xóa phần size parameter ở cuối URL
+        $cleaned = preg_replace( '/=w\d+(-h\d+)?(-[a-z])?$/i', '', $url );
+        $cleaned = preg_replace( '/=s\d+(-[a-z])?$/i', '', $cleaned );
         
-        return esc_url_raw( $cleaned );
+        return esc_url_raw( trim( $cleaned ) );
     }
 
     /**
@@ -1005,32 +1006,42 @@ class Can_Giuoc_Food_Core {
     }
 
     private function sideload_image( $url, $post_id ) {
-        require_once( ABSPATH . 'wp-admin/includes/media.php' );
+        if ( empty( $url ) ) {
+            return;
+        }
+        
         require_once( ABSPATH . 'wp-admin/includes/file.php' );
+        require_once( ABSPATH . 'wp-admin/includes/media.php' );
         require_once( ABSPATH . 'wp-admin/includes/image.php' );
 
         // Tải ảnh về
         $tmp = download_url( $url );
-        if ( is_wp_error( $tmp ) ) return;
+        if ( is_wp_error( $tmp ) ) {
+            // Log error but don't stop import
+            error_log( 'Failed to download image: ' . $url . ' - ' . $tmp->get_error_message() );
+            return;
+        }
 
+        // Tạo tên file an toàn
+        $filename = 'restaurant-' . $post_id . '-' . time() . '.jpg';
+        
         $file_array = array(
-            'name'     => basename( $url ),
+            'name'     => $filename,
             'tmp_name' => $tmp,
         );
-
-        // Check file extension
-        $file_type = wp_check_filetype( $file_array['name'], null );
-        if ( ! $file_type['type'] ) {
-            $file_array['name'] .= '.jpg'; // Fallback extension
-        }
 
         $id = media_handle_sideload( $file_array, $post_id );
 
         if ( ! is_wp_error( $id ) ) {
             set_post_thumbnail( $post_id, $id );
+        } else {
+            error_log( 'Failed to sideload image for post ' . $post_id . ': ' . $id->get_error_message() );
         }
 
-        @unlink( $file_array['tmp_name'] ); // Clean up
+        // Clean up temp file
+        if ( file_exists( $tmp ) ) {
+            @unlink( $tmp );
+        }
     }
     /**
      * 8. HỖ TRỢ Sticky Post cho Custom Post Type "quan_an"
