@@ -801,6 +801,9 @@ class Can_Giuoc_Food_Core {
             return '<div class="notice notice-error"><p>Lỗi: Không tìm thấy cột <strong>Name</strong> trong file CSV. Vui lòng kiểm tra dòng tiêu đề.</p></div>';
         }
 
+        // Đảm bảo category "Gợi ý từ Google" tồn tại
+        $this->ensure_google_suggestion_category();
+
         $count_total = 0;
         $count_success = 0;
         $count_duplicate = 0;
@@ -821,27 +824,34 @@ class Can_Giuoc_Food_Core {
             // Lấy các field khác
             $address    = ($idx_address !== false && isset($row[$idx_address])) ? sanitize_text_field( $row[$idx_address] ) : '';
             $rating_raw = ($idx_rating !== false && isset($row[$idx_rating])) ? $row[$idx_rating] : '0';
-            $image_url  = ($idx_image !== false && isset($row[$idx_image])) ? esc_url_raw( $row[$idx_image] ) : '';
+            $image_url_raw  = ($idx_image !== false && isset($row[$idx_image])) ? $row[$idx_image] : '';
             $map_link   = ($idx_map !== false && isset($row[$idx_map])) ? esc_url_raw( $row[$idx_map] ) : '';
 
-            // KIỂM TRA TRÙNG LẶP - Nâng cao
-            // 1. Kiểm tra trùng theo Title
-            if ( $this->post_exists_by_title( $name ) ) {
-                $count_duplicate++;
-                continue;
-            }
-            
-            // 2. Kiểm tra trùng theo MapLink (nếu có)
+            // AUTO-CLEAN IMAGE URL - Loại bỏ tham số kích thước để lấy ảnh gốc chất lượng cao
+            $image_url = $this->clean_image_url( $image_url_raw );
+
+            // SMART DEDUPLICATION - Ưu tiên MapLink, sau đó mới đến Title
+            // 1. Kiểm tra trùng theo MapLink (ưu tiên cao nhất)
             if ( ! empty( $map_link ) && $this->post_exists_by_map_link( $map_link ) ) {
                 $count_duplicate++;
                 continue;
             }
+            
+            // 2. Kiểm tra trùng theo Title
+            if ( $this->post_exists_by_title( $name ) ) {
+                $count_duplicate++;
+                continue;
+            }
+
+            // CONTENT INJECTION - Tạo nội dung với disclaimer và action buttons
+            $post_content = $this->generate_post_content_with_disclaimer( $name );
 
             // Tạo Post
             $post_id = wp_insert_post( array(
                 'post_title'   => $name,
                 'post_type'    => 'quan_an',
                 'post_status'  => 'publish',
+                'post_content' => $post_content,
                 'meta_input'   => array(
                     '_cg_address'      => $address,
                     '_cg_map_link'     => $map_link, 
@@ -852,18 +862,15 @@ class Can_Giuoc_Food_Core {
             if ( $post_id && ! is_wp_error( $post_id ) ) {
                 $count_success++;
                 
-                // Taxonomy: Chưa phân loại
-                if ( ! term_exists( 'Chưa phân loại', 'food_type' ) ) {
-                    wp_insert_term( 'Chưa phân loại', 'food_type' );
-                }
-                wp_set_object_terms( $post_id, 'Chưa phân loại', 'food_type' );
+                // Taxonomy: "Gợi ý từ Google"
+                wp_set_object_terms( $post_id, 'Gợi ý từ Google', 'food_type' );
 
                 // Taxonomy: Khu vực (Auto-detect from Address)
                 if ( ! empty( $address ) ) {
                     $this->auto_assign_region( $post_id, $address );
                 }
 
-                // Image Sideload
+                // Image Sideload (với URL đã được clean)
                 if ( ! empty( $image_url ) ) {
                     $this->sideload_image( $image_url, $post_id );
                 }
@@ -875,16 +882,74 @@ class Can_Giuoc_Food_Core {
         fclose( $file_handle );
 
         // Báo cáo chi tiết
-        $message = '<div class="notice notice-success"><p><strong>📊 Kết quả Import:</strong></p>';
+        $message = '<div class="notice notice-success"><p><strong>📊 Kết quả Import (Smart Mode):</strong></p>';
         $message .= '<ul style="margin-left: 20px; list-style: disc;">';
         $message .= '<li>Tổng số dòng trong CSV: <strong>' . $count_total . '</strong></li>';
         $message .= '<li>✅ Đã thêm mới: <strong style="color: green;">' . $count_success . '</strong></li>';
         $message .= '<li>⏭️ Đã bỏ qua (Trùng lặp): <strong style="color: orange;">' . $count_duplicate . '</strong></li>';
         $message .= '<li>⚠️ Dòng rỗng: <strong>' . $count_empty . '</strong></li>';
         $message .= '<li>❌ Lỗi: <strong style="color: red;">' . $count_error . '</strong></li>';
-        $message .= '</ul></div>';
+        $message .= '</ul>';
+        $message .= '<p style="margin-top: 10px;"><em>💡 Tất cả bài viết đã được phân loại vào "Gợi ý từ Google" và có disclaimer tự động.</em></p>';
+        $message .= '</div>';
         
         return $message;
+    }
+
+    /**
+     * AUTO-CLEAN IMAGE URL
+     * Loại bỏ các tham số kích thước (=w400, =s120, etc.) để lấy ảnh gốc chất lượng cao
+     */
+    private function clean_image_url( $url ) {
+        if ( empty( $url ) ) {
+            return '';
+        }
+        
+        // Loại bỏ các pattern như: =w400-h300, =s120-c, =w1200, etc.
+        $cleaned = preg_replace( '/=w\d+(-h\d+)?(-[a-z])?/i', '', $url );
+        $cleaned = preg_replace( '/=s\d+(-[a-z])?/i', '', $cleaned );
+        
+        return esc_url_raw( $cleaned );
+    }
+
+    /**
+     * CONTENT INJECTION
+     * Tạo nội dung với disclaimer và action buttons
+     */
+    private function generate_post_content_with_disclaimer( $restaurant_name ) {
+        $safe_name = esc_html( $restaurant_name );
+        $encoded_name = rawurlencode( $restaurant_name );
+        
+        $content = '<p>Thông tin về quán ăn này được tự động thu thập từ Google Maps.</p>';
+        $content .= "\n\n";
+        $content .= '<hr style="margin: 20px 0; border: 0; border-top: 1px solid #eee;">';
+        $content .= '<div style="background: #f9f9f9; padding: 15px; border-radius: 8px; font-size: 0.9em;">';
+        $content .= '<p style="margin-top: 0;"><em>⚠️ <strong>Lưu ý:</strong> Thông tin và hình ảnh được tham khảo tự động từ Google Maps. Vui lòng liên hệ quán để xác nhận trước khi đến.</em></p>';
+        $content .= '<div style="margin-top: 10px; display: flex; gap: 10px; flex-wrap: wrap;">';
+        $content .= '<a href="mailto:admin@anuongcangiuoc.org?subject=Báo lỗi thông tin quán: ' . $encoded_name . '" ';
+        $content .= 'style="background: #ffebee; color: #c62828; padding: 8px 12px; border-radius: 4px; text-decoration: none; font-weight: 600; border: 1px solid #ffcdd2;">';
+        $content .= '🚨 Báo lỗi / Cập nhật';
+        $content .= '</a>';
+        $content .= '<a href="mailto:admin@anuongcangiuoc.org?subject=Xác nhận chủ quán: ' . $encoded_name . '" ';
+        $content .= 'style="background: #e8f5e9; color: #2e7d32; padding: 8px 12px; border-radius: 4px; text-decoration: none; font-weight: 600; border: 1px solid #c8e6c9;">';
+        $content .= '✅ Tôi là chủ quán này';
+        $content .= '</a>';
+        $content .= '</div>';
+        $content .= '</div>';
+        
+        return $content;
+    }
+
+    /**
+     * Đảm bảo category "Gợi ý từ Google" tồn tại
+     */
+    private function ensure_google_suggestion_category() {
+        if ( ! term_exists( 'Gợi ý từ Google', 'food_type' ) ) {
+            wp_insert_term( 'Gợi ý từ Google', 'food_type', array(
+                'description' => 'Các quán ăn được gợi ý tự động từ Google Maps',
+                'slug'        => 'goi-y-tu-google'
+            ));
+        }
     }
 
     private function post_exists_by_title( $title ) {
