@@ -581,12 +581,13 @@ class Can_Giuoc_Food_Core {
             'schema' => array( 'type' => 'array' ),
         ));
 
-        // Thumbnail URL (TRỰC TIẾP - Không cần _embed)
+        // Thumbnail URL (Large - hiển thị danh sách rõ nét hơn)
         register_rest_field( 'quan_an', 'thumbnail_url', array(
             'get_callback' => function( $object ) {
                 $image_id = get_post_thumbnail_id( $object['id'] );
                 if ( $image_id ) {
-                    $image_url = wp_get_attachment_image_url( $image_id, 'medium' );
+                    // Chuyển từ 'medium' sang 'large' để ảnh nét hơn
+                    $image_url = wp_get_attachment_image_url( $image_id, 'large' );
                     return $image_url ?: null;
                 }
                 return null;
@@ -594,12 +595,13 @@ class Can_Giuoc_Food_Core {
             'schema' => array( 'type' => 'string' ),
         ));
 
-        // Featured Media URL (Large - cho trang chi tiết)
+        // Featured Media URL (Full - cho trang chi tiết sắc nét nhất)
         register_rest_field( 'quan_an', 'featured_media_url', array(
             'get_callback' => function( $object ) {
                 $image_id = $object['featured_media'];
                 if ( $image_id ) {
-                    return wp_get_attachment_image_url( $image_id, 'large' );
+                    // Chuyển từ 'large' sang 'full' để lấy ảnh gốc chất lượng cao nhất
+                    return wp_get_attachment_image_url( $image_id, 'full' );
                 }
                 return null;
             },
@@ -731,6 +733,83 @@ class Can_Giuoc_Food_Core {
             'import-quan-an',
             array( $this, 'render_import_page' )
         );
+
+        // Submenu: Bảo trì & Dọn dẹp
+        add_submenu_page( 
+            'edit.php?post_type=quan_an', 
+            'Bảo trì', 
+            'Bảo trì & Dọn dẹp', 
+            'manage_options', 
+            'cg-food-maintenance', 
+            array( $this, 'render_maintenance_page' ) 
+        );
+    }
+
+    /**
+     * Render trang bảo trì
+     */
+    public function render_maintenance_page() {
+        if ( ! current_user_can( 'manage_options' ) ) return;
+
+        // Xử lý hành động dọn dẹp
+        $message = '';
+        if ( isset( $_POST['cg_cleanup_action'] ) && check_admin_referer( 'cg_cleanup_action', 'cg_cleanup_nonce' ) ) {
+            $count = $this->cleanup_orphaned_images();
+            $message = '<div class="notice notice-success"><p>Đã dọn dẹp thành công: <strong>' . $count . '</strong> hình ảnh rác (không gắn với quán nào).</p></div>';
+        }
+
+        ?>
+        <div class="wrap">
+            <h1>🛠️ Bảo trì & Dọn dẹp hệ thống</h1>
+            <?php echo $message; ?>
+            
+            <div class="card" style="max-width: 600px; margin-top: 20px; padding: 20px;">
+                <h2>🧹 Dọn dẹp ảnh rác</h2>
+                <p>Chức năng này sẽ quét và xóa các hình ảnh được import tự động trước đây nhưng hiện tại không còn gắn với quán ăn nào (do quán đã bị xóa hoặc import lỗi).</p>
+                <p>Nên chạy chức năng này sau khi xóa bỏ các quán cũ để tiết kiệm dung lượng hosting.</p>
+                
+                <form method="post">
+                    <?php wp_nonce_field( 'cg_cleanup_action', 'cg_cleanup_nonce' ); ?>
+                    <p>
+                        <input type="submit" name="cg_cleanup_action" class="button button-primary button-large" value="Quét & Xóa ảnh rác ngay" onclick="return confirm('Bạn có chắc chắn muốn xóa vĩnh viễn các ảnh không sử dụng?');" />
+                    </p>
+                </form>
+            </div>
+        </div>
+        <?php
+    }
+
+    /**
+     * Logic dọn dẹp ảnh rác
+     */
+    private function cleanup_orphaned_images() {
+        global $wpdb;
+        
+        // 1. Tìm tất cả attachment có tên bắt đầu bằng "restaurant-" (dấu hiệu của tool này)
+        // và post_parent > 0
+        $attachments = $wpdb->get_results( "
+            SELECT ID, post_parent 
+            FROM {$wpdb->posts} 
+            WHERE post_type = 'attachment' 
+            AND post_name LIKE 'restaurant-%'
+            AND post_parent > 0
+        " );
+
+        $count_deleted = 0;
+
+        foreach ( $attachments as $att ) {
+            // 2. Kiểm tra xem post_parent (quán ăn) còn tồn tại không
+            $parent = get_post( $att->post_parent );
+            
+            // Nếu cha không còn tồn tại, hoặc cha đang ở thùng rác -> Xóa ảnh
+            if ( ! $parent || $parent->post_status === 'trash' ) {
+                if ( wp_delete_attachment( $att->ID, true ) ) {
+                    $count_deleted++;
+                }
+            }
+        }
+
+        return $count_deleted;
     }
 
     public function render_import_page() {
@@ -1025,6 +1104,26 @@ class Can_Giuoc_Food_Core {
         // Tạo tên file an toàn
         $filename = 'restaurant-' . $post_id . '-' . time() . '.jpg';
         
+        // SMART COMPRESSION & RESIZE
+        // Xử lý resize và nén thủ công trước khi đưa vào WordPress Media
+        // Giúp tiết kiệm dung lượng hosting (chỉ giữ file tối ưu, không giữ file gốc nặng)
+        $image_editor = wp_get_image_editor( $tmp );
+        
+        if ( ! is_wp_error( $image_editor ) ) {
+            $size = $image_editor->get_size();
+            
+            // 1. Resize nếu chiều rộng lớn hơn 2048px
+            if ( $size['width'] > 2048 ) {
+                $image_editor->resize( 2048, null, false ); // Giữ tỉ lệ, không crop
+            }
+            
+            // 2. Set quality 85 (Smart Compression)
+            $image_editor->set_quality( 85 );
+            
+            // 3. Lưu đè lại file tạm
+            $image_editor->save( $tmp );
+        }
+
         $file_array = array(
             'name'     => $filename,
             'tmp_name' => $tmp,
