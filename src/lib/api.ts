@@ -15,18 +15,32 @@ export interface FetchRestaurantsParams {
     per_page?: number;
     page?: number;
     search?: string;
-    orderby?: 'date' | 'title';
+    orderby?: 'date' | 'title' | 'rating' | 'view_count';
     order?: 'asc' | 'desc';
     food_type?: string;
     khu_vuc?: string;
 }
 
+export interface FetchRestaurantsResponse {
+    restaurants: Restaurant[];
+    total: number;
+    totalPages: number;
+}
+
 /**
- * Fetch danh sách quán ăn từ WordPress REST API
+ * Fetch danh sách quán ăn từ WordPress REST API (legacy - returns array only)
  */
 export async function fetchRestaurants(params: FetchRestaurantsParams = {}): Promise<Restaurant[]> {
+    const result = await fetchRestaurantsWithPagination(params);
+    return result.restaurants;
+}
+
+/**
+ * Fetch danh sách quán ăn với thông tin pagination
+ */
+export async function fetchRestaurantsWithPagination(params: FetchRestaurantsParams = {}): Promise<FetchRestaurantsResponse> {
     const {
-        per_page = 10,
+        per_page = 20,
         page = 1,
         search,
         orderby,
@@ -42,7 +56,19 @@ export async function fetchRestaurants(params: FetchRestaurantsParams = {}): Pro
     });
 
     if (search) queryParams.append('search', search);
-    if (orderby) queryParams.append('orderby', orderby);
+
+    // Handle different orderby options
+    if (orderby === 'rating') {
+        // Sort by average rating (client-side after fetch)
+        queryParams.append('orderby', 'date');
+    } else if (orderby === 'view_count') {
+        // Sort by view count meta field
+        queryParams.append('orderby', 'meta_value_num');
+        queryParams.append('meta_key', 'post_views_count');
+    } else if (orderby) {
+        queryParams.append('orderby', orderby);
+    }
+
     if (order) queryParams.append('order', order);
     if (food_type) queryParams.append('food_type', food_type);
     if (khu_vuc) queryParams.append('khu_vuc', khu_vuc);
@@ -56,13 +82,17 @@ export async function fetchRestaurants(params: FetchRestaurantsParams = {}): Pro
 
         if (!response.ok) {
             console.error('API Error:', response.status, response.statusText);
-            return [];
+            return { restaurants: [], total: 0, totalPages: 0 };
         }
 
         const data = await response.json();
 
+        // Get total count from headers
+        const total = parseInt(response.headers.get('X-WP-Total') || '0', 10);
+        const totalPages = parseInt(response.headers.get('X-WP-TotalPages') || '0', 10);
+
         // Fix URLs cho từng quán ăn
-        return (data as Restaurant[]).map(r => ({
+        let restaurants = (data as Restaurant[]).map(r => ({
             ...r,
             featured_media_url: fixWpUrl(r.featured_media_url),
             thumbnail_url: fixWpUrl(r.thumbnail_url),
@@ -71,9 +101,32 @@ export async function fetchRestaurants(params: FetchRestaurantsParams = {}): Pro
                 rendered: fixWpUrl(r.content?.rendered)
             }
         }));
+
+        // Client-side sorting for rating
+        if (orderby === 'rating') {
+            restaurants = restaurants
+                .map(r => {
+                    const ratings = [
+                        Number(r.rating_food || 0),
+                        Number(r.rating_price || 0),
+                        Number(r.rating_service || 0),
+                        Number(r.rating_ambiance || 0),
+                    ].filter(rating => rating > 0);
+                    const avgRating = ratings.length > 0
+                        ? ratings.reduce((a, b) => a + b, 0) / ratings.length
+                        : 0;
+                    return { ...r, avgRating };
+                })
+                .sort((a: any, b: any) => {
+                    const orderMultiplier = order === 'asc' ? 1 : -1;
+                    return (b.avgRating - a.avgRating) * orderMultiplier;
+                });
+        }
+
+        return { restaurants, total, totalPages };
     } catch (error) {
         console.error('Fetch error:', error);
-        return [];
+        return { restaurants: [], total: 0, totalPages: 0 };
     }
 }
 

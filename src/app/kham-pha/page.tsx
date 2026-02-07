@@ -4,7 +4,7 @@ import { Navbar } from '@/components/Navbar';
 import { RestaurantCard } from '@/components/RestaurantCard';
 import { Restaurant } from '@/types/wordpress';
 import { useSearchParams } from 'next/navigation';
-import { fetchRestaurants } from '@/lib/api';
+import { fetchRestaurantsWithPagination } from '@/lib/api';
 
 import { Suspense } from 'react';
 
@@ -16,7 +16,14 @@ function ExplorePageContent() {
 
     const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
     const [loading, setLoading] = useState(true);
+    const [loadingMore, setLoadingMore] = useState(false);
     const [showMobileFilter, setShowMobileFilter] = useState(false);
+
+    // Pagination state
+    const [currentPage, setCurrentPage] = useState(1);
+    const [totalRestaurants, setTotalRestaurants] = useState(0);
+    const [totalPages, setTotalPages] = useState(0);
+    const [hasMore, setHasMore] = useState(false);
 
     const [selectedRegions, setSelectedRegions] = useState<string[]>([]);
     const [selectedPriceRanges, setSelectedPriceRanges] = useState<string[]>([]);
@@ -32,17 +39,25 @@ function ExplorePageContent() {
     useEffect(() => {
         async function fetchData() {
             setLoading(true);
+            setCurrentPage(1); // Reset to page 1
             try {
-                const data = await fetchRestaurants({
-                    per_page: 200,
+                const { restaurants: data, total, totalPages: pages } = await fetchRestaurantsWithPagination({
+                    per_page: 20,
+                    page: 1,
                     search: searchKeyword,
-                    orderby: sortBy === 'newest' ? 'date' : undefined,
-                    order: sortBy === 'newest' ? 'desc' : undefined
+                    orderby: getSortOrderBy(sortBy),
+                    order: getSortOrder(sortBy)
                 });
                 setRestaurants(data);
+                setTotalRestaurants(total);
+                setTotalPages(pages);
+                setHasMore(pages > 1);
             } catch (error) {
                 console.error('Error fetching restaurants:', error);
                 setRestaurants([]);
+                setTotalRestaurants(0);
+                setTotalPages(0);
+                setHasMore(false);
             } finally {
                 setLoading(false);
             }
@@ -50,6 +65,50 @@ function ExplorePageContent() {
 
         fetchData();
     }, [searchKeyword, sortBy]);
+
+    // Helper functions for sorting
+    const getSortOrderBy = (sort: string): 'date' | 'rating' | 'view_count' | undefined => {
+        switch (sort) {
+            case 'newest':
+            case 'oldest':
+                return 'date';
+            case 'rating':
+                return 'rating';
+            case 'popular':
+                return 'view_count';
+            default:
+                return 'date';
+        }
+    };
+
+    const getSortOrder = (sort: string): 'asc' | 'desc' => {
+        if (sort === 'oldest') return 'asc';
+        return 'desc';
+    };
+
+    // Load more function
+    const loadMoreRestaurants = async () => {
+        if (loadingMore || !hasMore) return;
+
+        setLoadingMore(true);
+        try {
+            const nextPage = currentPage + 1;
+            const { restaurants: data } = await fetchRestaurantsWithPagination({
+                per_page: 20,
+                page: nextPage,
+                search: searchKeyword,
+                orderby: getSortOrderBy(sortBy),
+                order: getSortOrder(sortBy)
+            });
+            setRestaurants(prev => [...prev, ...data]);
+            setCurrentPage(nextPage);
+            setHasMore(nextPage < totalPages);
+        } catch (error) {
+            console.error('Error loading more restaurants:', error);
+        } finally {
+            setLoadingMore(false);
+        }
+    };
 
     // Đồng bộ URL params với filter state
     useEffect(() => {
@@ -192,7 +251,7 @@ function ExplorePageContent() {
                         🔍 Khám phá Ẩm thực
                     </h1>
                     <p className="text-sm md:text-base text-gray-600">
-                        Tìm thấy <span className="font-bold text-orange-600">{filteredRestaurants.length}</span> quán ăn
+                        Tìm thấy <span className="font-bold text-orange-600">{totalRestaurants}</span> quán ăn
                     </p>
                 </div>
 
@@ -374,6 +433,7 @@ function ExplorePageContent() {
                                 className="px-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
                             >
                                 <option value="newest">Mới nhất</option>
+                                <option value="oldest">Cũ nhất</option>
                                 <option value="rating">Đánh giá cao</option>
                                 <option value="popular">Phổ biến</option>
                             </select>
@@ -386,11 +446,36 @@ function ExplorePageContent() {
                                 <p className="mt-4 text-gray-600">Đang tải dữ liệu...</p>
                             </div>
                         ) : filteredRestaurants.length > 0 ? (
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                                {filteredRestaurants.map((restaurant) => (
-                                    <RestaurantCard key={restaurant.id} data={restaurant} />
-                                ))}
-                            </div>
+                            <>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                                    {filteredRestaurants.map((restaurant) => (
+                                        <RestaurantCard key={restaurant.id} data={restaurant} />
+                                    ))}
+                                </div>
+
+                                {/* Load More Button */}
+                                {hasMore && (
+                                    <div className="mt-8 flex justify-center">
+                                        <button
+                                            onClick={loadMoreRestaurants}
+                                            disabled={loadingMore}
+                                            className="bg-orange-500 hover:bg-orange-600 disabled:bg-gray-300 text-white font-bold py-3 px-8 rounded-xl transition-all shadow-lg shadow-orange-200 disabled:shadow-none flex items-center gap-2"
+                                        >
+                                            {loadingMore ? (
+                                                <>
+                                                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                                                    <span>Đang tải...</span>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <span>📋</span>
+                                                    <span>Xem thêm ({totalRestaurants - filteredRestaurants.length} quán)</span>
+                                                </>
+                                            )}
+                                        </button>
+                                    </div>
+                                )}
+                            </>
                         ) : (
                             <div className="text-center py-20">
                                 <p className="text-2xl mb-2">😔</p>
