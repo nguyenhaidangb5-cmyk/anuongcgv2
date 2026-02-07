@@ -1,9 +1,11 @@
 "use client";
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import Fuse from 'fuse.js';
 import { Restaurant } from '@/types/wordpress';
 import { fetchRestaurants, fixWpUrl } from '@/lib/api';
+import { normalizeVietnameseString } from '@/lib/vietnamese-utils';
 
 interface LiveSearchProps {
     placeholder?: string;
@@ -13,13 +15,56 @@ export const LiveSearch: React.FC<LiveSearchProps> = ({
     placeholder = "Tìm món ngon, địa chỉ ăn uống..."
 }) => {
     const [keyword, setKeyword] = useState('');
+    const [allRestaurants, setAllRestaurants] = useState<Restaurant[]>([]);
     const [results, setResults] = useState<Restaurant[]>([]);
     const [loading, setLoading] = useState(false);
     const [showDropdown, setShowDropdown] = useState(false);
     const searchRef = useRef<HTMLDivElement>(null);
     const debounceTimer = useRef<NodeJS.Timeout | null>(null);
 
-    // Debounce search
+    // Fuse.js configuration for fuzzy search
+    const fuse = useMemo(() => {
+        if (allRestaurants.length === 0) return null;
+
+        return new Fuse(allRestaurants, {
+            keys: [
+                { name: 'title.rendered', weight: 2 },
+                { name: 'address', weight: 1.5 },
+                { name: 'food_type_names', weight: 1 },
+                { name: 'region_names', weight: 0.8 }
+            ],
+            threshold: 0.4, // 0 = perfect match, 1 = match anything
+            ignoreLocation: true,
+            useExtendedSearch: true,
+            getFn: (obj, path) => {
+                const value = Fuse.config.getFn(obj, path);
+                if (typeof value === 'string') {
+                    return normalizeVietnameseString(value);
+                }
+                if (Array.isArray(value)) {
+                    return value.map(v => typeof v === 'string' ? normalizeVietnameseString(v) : v);
+                }
+                return value;
+            }
+        });
+    }, [allRestaurants]);
+
+    // Fetch all restaurants once on mount
+    useEffect(() => {
+        const loadRestaurants = async () => {
+            try {
+                const data = await fetchRestaurants({
+                    per_page: 100 // Fetch more for better search results
+                });
+                setAllRestaurants(data);
+            } catch (error) {
+                console.error('Failed to load restaurants:', error);
+            }
+        };
+        loadRestaurants();
+    }, []);
+
+    // Debounced search with Fuse.js
     useEffect(() => {
         if (keyword.trim().length < 2) {
             setResults([]);
@@ -35,14 +80,25 @@ export const LiveSearch: React.FC<LiveSearchProps> = ({
         }
 
         // Set new timer (300ms debounce)
-        debounceTimer.current = setTimeout(async () => {
+        debounceTimer.current = setTimeout(() => {
             try {
-                const data = await fetchRestaurants({
-                    search: keyword,
-                    per_page: 5
-                });
-                setResults(data);
-                setShowDropdown(true);
+                if (fuse) {
+                    // Normalize keyword for Vietnamese search
+                    const normalizedKeyword = normalizeVietnameseString(keyword);
+
+                    // Perform fuzzy search
+                    const fuseResults = fuse.search(normalizedKeyword);
+
+                    // Extract items and limit to 15
+                    const searchResults = fuseResults
+                        .map(result => result.item)
+                        .slice(0, 15);
+
+                    setResults(searchResults);
+                    setShowDropdown(true);
+                } else {
+                    setResults([]);
+                }
             } catch (error) {
                 console.error('Search error:', error);
                 setResults([]);
@@ -56,7 +112,7 @@ export const LiveSearch: React.FC<LiveSearchProps> = ({
                 clearTimeout(debounceTimer.current);
             }
         };
-    }, [keyword]);
+    }, [keyword, fuse]);
 
     // Click outside to close
     useEffect(() => {
@@ -103,9 +159,9 @@ export const LiveSearch: React.FC<LiveSearchProps> = ({
                 </button>
             </form>
 
-            {/* Dropdown Results */}
+            {/* Dropdown Results - Fixed z-index and overflow issues */}
             {showDropdown && keyword.trim().length >= 2 && (
-                <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden z-50 max-h-[400px] overflow-y-auto">
+                <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden z-[9999] max-h-[400px] overflow-y-auto">
                     {loading ? (
                         <div className="p-6 text-center">
                             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500 mx-auto mb-2"></div>
@@ -163,7 +219,7 @@ export const LiveSearch: React.FC<LiveSearchProps> = ({
                                     onClick={() => setShowDropdown(false)}
                                     className="text-sm font-bold text-orange-600 hover:text-orange-700 hover:underline"
                                 >
-                                    Xem tất cả kết quả cho "{keyword}" →
+                                    Xem tất cả {results.length} kết quả cho "{keyword}" →
                                 </Link>
                             </div>
                         </div>

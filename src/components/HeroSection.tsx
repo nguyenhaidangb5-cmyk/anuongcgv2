@@ -4,10 +4,10 @@ import { LiveSearch } from './LiveSearch';
 
 export const HeroSection = () => {
     return (
-        <div className="relative h-[350px] md:h-[500px] w-full overflow-hidden">
+        <div className="relative h-[350px] md:h-[500px] w-full">
             {/* Background Image */}
             <div
-                className="absolute inset-0 bg-cover bg-center"
+                className="absolute inset-0 bg-cover bg-center overflow-hidden"
                 style={{ backgroundImage: 'url("https://images.unsplash.com/photo-1504674900247-0877df9cc836?q=80&w=2000&auto=format&fit=crop")' }}
             />
             {/* Dark Overlay 40% */}
