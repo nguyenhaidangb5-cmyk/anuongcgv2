@@ -1635,7 +1635,464 @@ class Can_Giuoc_Food_Core {
             ),
         ));
     }
-}
 
+    /**
+     * ========================================
+     * 11. SMART CONTRIBUTION SYSTEM
+     * ========================================
+     */
+    
+    /**
+     * Register bao_cao post type for user reports
+     */
+    public function register_cpt_bao_cao() {
+        $labels = array(
+            'name'                  => 'Báo Cáo',
+            'singular_name'         => 'Báo cáo',
+            'menu_name'             => 'Báo Cáo',
+            'add_new'               => 'Thêm mới',
+            'all_items'             => 'Tất cả báo cáo',
+            'edit_item'             => 'Xử lý báo cáo',
+        );
+
+        $args = array(
+            'labels'                => $labels,
+            'supports'              => array( 'title', 'editor' ),
+            'public'                => false,
+            'show_ui'               => true,
+            'show_in_menu'          => true,
+            'menu_position'         => 7,
+            'menu_icon'             => 'dashicons-flag',
+            'has_archive'           => false,
+            'capability_type'       => 'post',
+            'show_in_rest'          => true,
+            'rest_base'             => 'bao_cao',
+        );
+
+        register_post_type( 'bao_cao', $args );
+    }
+    
+    /**
+     * Add meta box for quick report processing
+     */
+    public function add_report_processing_meta_box() {
+        add_meta_box(
+            'report_processing',
+            '⚡ Xử lý nhanh (One-Click Merge)',
+            array( $this, 'render_report_processing_meta_box' ),
+            'bao_cao',
+            'normal',
+            'high'
+        );
+        
+        // Add meta box for report details
+        add_meta_box(
+            'report_details',
+            '📝 Thông tin báo cáo',
+            array( $this, 'render_report_details_meta_box' ),
+            'bao_cao',
+            'side',
+            'default'
+        );
+    }
+    
+    /**
+     * Render report processing meta box with comparison UI
+     */
+    public function render_report_processing_meta_box( $post ) {
+        wp_nonce_field( 'report_processing_nonce', 'report_processing_nonce_field' );
+        
+        $restaurant_id = get_post_meta( $post->ID, '_reported_restaurant_id', true );
+        $report_type = get_post_meta( $post->ID, '_report_type', true );
+        $suggested_changes = get_post_meta( $post->ID, '_suggested_changes', true );
+        $merge_status = get_post_meta( $post->ID, '_merge_status', true );
+        
+        if ( ! $restaurant_id ) {
+            echo '<p style="color: #999;">Chưa có thông tin quán ăn được báo cáo.</p>';
+            return;
+        }
+        
+        // Get current restaurant data
+        $restaurant = get_post( $restaurant_id );
+        if ( ! $restaurant ) {
+            echo '<p style="color: #d63638;">❌ Không tìm thấy quán ăn (ID: ' . $restaurant_id . ')</p>';
+            return;
+        }
+        
+        // Decode suggested changes
+        $changes = json_decode( $suggested_changes, true );
+        if ( ! $changes ) {
+            $changes = array();
+        }
+        
+        // Display status
+        if ( $merge_status === 'approved' ) {
+            echo '<div style="background: #d1e7dd; border-left: 4px solid #0f5132; padding: 12px; margin-bottom: 20px;">';
+            echo '<strong style="color: #0f5132;">✅ Đã xử lý và cập nhật</strong>';
+            echo '</div>';
+        }
+        
+        ?>
+        <style>
+            .comparison-table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+            .comparison-table th { background: #f0f0f1; padding: 12px; text-align: left; font-weight: 600; }
+            .comparison-table td { padding: 12px; border-bottom: 1px solid #ddd; vertical-align: top; }
+            .comparison-table tr:hover { background: #f9f9f9; }
+            .current-value { color: #666; }
+            .suggested-value { color: #2271b1; font-weight: 600; }
+            .changed-row { background: #fff3cd; }
+            .merge-button { background: #00a32a; color: white; border: none; padding: 12px 24px; font-size: 14px; font-weight: 600; border-radius: 4px; cursor: pointer; }
+            .merge-button:hover { background: #008a20; }
+            .merge-button:disabled { background: #ddd; cursor: not-allowed; }
+        </style>
+        
+        <h3>📊 So sánh dữ liệu</h3>
+        <p><strong>Quán:</strong> <a href="<?php echo get_edit_post_link( $restaurant_id ); ?>" target="_blank"><?php echo esc_html( $restaurant->post_title ); ?></a></p>
+        <p><strong>Loại báo cáo:</strong> <?php echo esc_html( $report_type ?: 'Không xác định' ); ?></p>
+        
+        <table class="comparison-table">
+            <thead>
+                <tr>
+                    <th style="width: 30%;">Trường dữ liệu</th>
+                    <th style="width: 35%;">Hiện tại</th>
+                    <th style="width: 35%;">Đề xuất thay đổi</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php
+                // Special handling for "closed" status
+                if ( $report_type === 'closed' ) {
+                    $is_closed = get_post_meta( $restaurant_id, '_is_closed', true );
+                    echo '<tr class="changed-row">';
+                    echo '<td><strong>Trạng thái</strong></td>';
+                    echo '<td class="current-value">' . ( $is_closed ? '⛔ Đã đóng cửa' : '✅ Đang hoạt động' ) . '</td>';
+                    echo '<td class="suggested-value">⛔ Đã đóng cửa</td>';
+                    echo '</tr>';
+                }
+                
+                // Display other suggested changes
+                if ( ! empty( $changes ) ) {
+                    foreach ( $changes as $field => $new_value ) {
+                        $current_value = get_post_meta( $restaurant_id, '_' . $field, true );
+                        
+                        $field_labels = array(
+                            'address' => 'Địa chỉ',
+                            'phone' => 'Số điện thoại',
+                            'price' => 'Giá',
+                            'opening_hours' => 'Giờ mở cửa',
+                        );
+                        
+                        $label = isset( $field_labels[$field] ) ? $field_labels[$field] : ucfirst( $field );
+                        
+                        $is_changed = $current_value !== $new_value;
+                        $row_class = $is_changed ? 'changed-row' : '';
+                        
+                        echo '<tr class="' . $row_class . '">';
+                        echo '<td><strong>' . esc_html( $label ) . '</strong></td>';
+                        echo '<td class="current-value">' . esc_html( $current_value ?: '(Trống)' ) . '</td>';
+                        echo '<td class="suggested-value">' . esc_html( $new_value ?: '(Trống)' ) . '</td>';
+                        echo '</tr>';
+                    }
+                }
+                
+                if ( empty( $changes ) && $report_type !== 'closed' ) {
+                    echo '<tr><td colspan="3" style="text-align: center; color: #999;">Không có thay đổi được đề xuất</td></tr>';
+                }
+                ?>
+            </tbody>
+        </table>
+        
+        <?php if ( $merge_status !== 'approved' ) : ?>
+            <button type="button" class="merge-button" onclick="approveAndMerge(<?php echo $post->ID; ?>)">
+                ✅ CHẤP THUẬN & CẬP NHẬT
+            </button>
+            <span id="merge-status" style="margin-left: 12px; font-weight: 600;"></span>
+        <?php endif; ?>
+        <?php
+    }
+    
+    /**
+     * Render report details meta box
+     */
+    public function render_report_details_meta_box( $post ) {
+        $restaurant_id = get_post_meta( $post->ID, '_reported_restaurant_id', true );
+        $report_type = get_post_meta( $post->ID, '_report_type', true );
+        $reporter_name = get_post_meta( $post->ID, '_reporter_name', true );
+        $reporter_email = get_post_meta( $post->ID, '_reporter_email', true );
+        $proof_images = get_post_meta( $post->ID, '_proof_images', true );
+        
+        ?>
+        <div style="margin: 12px 0;">
+            <label><strong>ID Quán ăn:</strong></label>
+            <input type="number" name="reported_restaurant_id" value="<?php echo esc_attr( $restaurant_id ); ?>" style="width: 100%;" />
+        </div>
+        
+        <div style="margin: 12px 0;">
+            <label><strong>Loại báo cáo:</strong></label>
+            <select name="report_type" style="width: 100%;">
+                <option value="closed" <?php selected( $report_type, 'closed' ); ?>>Quán đã đóng cửa</option>
+                <option value="wrong_info" <?php selected( $report_type, 'wrong_info' ); ?>>Thông tin sai</option>
+                <option value="other" <?php selected( $report_type, 'other' ); ?>>Khác</option>
+            </select>
+        </div>
+        
+        <div style="margin: 12px 0;">
+            <label><strong>Người báo cáo:</strong></label>
+            <input type="text" name="reporter_name" value="<?php echo esc_attr( $reporter_name ); ?>" style="width: 100%;" />
+        </div>
+        
+        <div style="margin: 12px 0;">
+            <label><strong>Email:</strong></label>
+            <input type="email" name="reporter_email" value="<?php echo esc_attr( $reporter_email ); ?>" style="width: 100%;" />
+        </div>
+        
+        <div style="margin: 12px 0;">
+            <label><strong>Thay đổi đề xuất (JSON):</strong></label>
+            <textarea name="suggested_changes" rows="6" style="width: 100%; font-family: monospace; font-size: 12px;"><?php echo esc_textarea( get_post_meta( $post->ID, '_suggested_changes', true ) ); ?></textarea>
+            <p style="font-size: 11px; color: #666;">Format: {"field": "value", "address": "123 Street"}</p>
+        </div>
+        <?php
+    }
+    
+    /**
+     * Save report meta data
+     */
+    public function save_report_meta_data( $post_id ) {
+        if ( get_post_type( $post_id ) !== 'bao_cao' ) {
+            return;
+        }
+        
+        if ( ! isset( $_POST['reported_restaurant_id'] ) ) {
+            return;
+        }
+        
+        update_post_meta( $post_id, '_reported_restaurant_id', intval( $_POST['reported_restaurant_id'] ) );
+        update_post_meta( $post_id, '_report_type', sanitize_text_field( $_POST['report_type'] ) );
+        update_post_meta( $post_id, '_reporter_name', sanitize_text_field( $_POST['reporter_name'] ) );
+        update_post_meta( $post_id, '_reporter_email', sanitize_email( $_POST['reporter_email'] ) );
+        update_post_meta( $post_id, '_suggested_changes', sanitize_textarea_field( $_POST['suggested_changes'] ) );
+    }
+    
+    /**
+     * AJAX handler for approve and merge
+     */
+    public function handle_approve_and_merge() {
+        check_ajax_referer( 'report_processing_nonce', 'nonce' );
+        
+        if ( ! current_user_can( 'edit_posts' ) ) {
+            wp_send_json_error( array( 'message' => 'Không có quyền thực hiện' ) );
+        }
+        
+        $report_id = intval( $_POST['report_id'] );
+        $restaurant_id = get_post_meta( $report_id, '_reported_restaurant_id', true );
+        $report_type = get_post_meta( $report_id, '_report_type', true );
+        $suggested_changes = get_post_meta( $report_id, '_suggested_changes', true );
+        
+        if ( ! $restaurant_id ) {
+            wp_send_json_error( array( 'message' => 'Không tìm thấy quán ăn' ) );
+        }
+        
+        // Handle "closed" status
+        if ( $report_type === 'closed' ) {
+            update_post_meta( $restaurant_id, '_is_closed', true );
+            // Keep post published for SEO
+        }
+        
+        // Apply suggested changes
+        $changes = json_decode( $suggested_changes, true );
+        if ( is_array( $changes ) ) {
+            foreach ( $changes as $field => $value ) {
+                update_post_meta( $restaurant_id, '_' . $field, sanitize_text_field( $value ) );
+            }
+        }
+        
+        // Update report status
+        update_post_meta( $report_id, '_merge_status', 'approved' );
+        wp_update_post( array(
+            'ID' => $report_id,
+            'post_status' => 'completed'
+        ));
+        
+        wp_send_json_success( array( 
+            'message' => 'Đã cập nhật thành công!',
+            'restaurant_id' => $restaurant_id
+        ));
+    }
+    
+    /**
+     * Enqueue JavaScript for report processing
+     */
+    public function enqueue_report_processing_script() {
+        $screen = get_current_screen();
+        if ( $screen && $screen->post_type === 'bao_cao' ) {
+            ?>
+            <script>
+            function approveAndMerge(reportId) {
+                if (!confirm('Xác nhận cập nhật thông tin quán ăn theo báo cáo này?')) {
+                    return;
+                }
+                
+                const button = event.target;
+                const statusEl = document.getElementById('merge-status');
+                
+                button.disabled = true;
+                button.textContent = '⏳ Đang xử lý...';
+                statusEl.textContent = '';
+                
+                jQuery.ajax({
+                    url: ajaxurl,
+                    type: 'POST',
+                    data: {
+                        action: 'approve_and_merge',
+                        report_id: reportId,
+                        nonce: jQuery('#report_processing_nonce_field').val()
+                    },
+                    success: function(response) {
+                        if (response.success) {
+                            statusEl.innerHTML = '<span style="color: #00a32a;">✅ ' + response.data.message + '</span>';
+                            setTimeout(function() {
+                                location.reload();
+                            }, 1500);
+                        } else {
+                            statusEl.innerHTML = '<span style="color: #d63638;">❌ ' + response.data.message + '</span>';
+                            button.disabled = false;
+                            button.textContent = '✅ CHẤP THUẬN & CẬP NHẬT';
+                        }
+                    },
+                    error: function() {
+                        statusEl.innerHTML = '<span style="color: #d63638;">❌ Lỗi kết nối</span>';
+                        button.disabled = false;
+                        button.textContent = '✅ CHẤP THUẬN & CẬP NHẬT';
+                    }
+                });
+            }
+            </script>
+            <?php
+        }
+    }
+
+    /**
+     * REST API endpoint để nhận báo cáo từ frontend
+     */
+    public function register_report_submission_endpoint() {
+        register_rest_route( 'cg/v1', '/submit-report', array(
+            'methods'             => 'POST',
+            'callback'            => array( $this, 'handle_report_submission' ),
+            'permission_callback' => '__return_true',
+            'args'                => array(
+                'restaurant_id' => array(
+                    'required'          => true,
+                    'type'              => 'integer',
+                    'validate_callback' => function( $param ) {
+                        return is_numeric( $param );
+                    }
+                ),
+                'report_type' => array(
+                    'required' => true,
+                    'type'     => 'string',
+                    'enum'     => array( 'closed', 'wrong_info', 'other' ),
+                ),
+                'reporter_name' => array(
+                    'required'          => false,
+                    'type'              => 'string',
+                    'sanitize_callback' => 'sanitize_text_field',
+                ),
+                'reporter_email' => array(
+                    'required'          => false,
+                    'type'              => 'string',
+                    'sanitize_callback' => 'sanitize_email',
+                ),
+                'message' => array(
+                    'required'          => false,
+                    'type'              => 'string',
+                    'sanitize_callback' => 'sanitize_textarea_field',
+                ),
+                'suggested_changes' => array(
+                    'required' => false,
+                    'type'     => 'object',
+                ),
+            ),
+        ));
+    }
+    
+    /**
+     * Xử lý báo cáo được gửi từ frontend
+     */
+    public function handle_report_submission( $request ) {
+        $restaurant_id = $request->get_param( 'restaurant_id' );
+        $report_type = $request->get_param( 'report_type' );
+        $reporter_name = $request->get_param( 'reporter_name' );
+        $reporter_email = $request->get_param( 'reporter_email' );
+        $message = $request->get_param( 'message' );
+        $suggested_changes = $request->get_param( 'suggested_changes' );
+        
+        // Kiểm tra quán ăn có tồn tại không
+        $restaurant = get_post( $restaurant_id );
+        if ( ! $restaurant || $restaurant->post_type !== 'quan_an' ) {
+            return new WP_REST_Response( array(
+                'success' => false,
+                'message' => 'Không tìm thấy quán ăn này'
+            ), 404 );
+        }
+        
+        // Tạo tiêu đề báo cáo
+        $report_title = '';
+        switch ( $report_type ) {
+            case 'closed':
+                $report_title = 'Báo cáo: ' . $restaurant->post_title . ' đã đóng cửa';
+                break;
+            case 'wrong_info':
+                $report_title = 'Báo cáo thông tin sai: ' . $restaurant->post_title;
+                break;
+            default:
+                $report_title = 'Báo cáo khác: ' . $restaurant->post_title;
+        }
+        
+        // Tạo nội dung báo cáo
+        $report_content = '';
+        if ( $message ) {
+            $report_content = $message;
+        }
+        if ( $reporter_name ) {
+            $report_content .= "\n\n---\nNgười báo cáo: " . $reporter_name;
+        }
+        if ( $reporter_email ) {
+            $report_content .= "\nEmail: " . $reporter_email;
+        }
+        
+        // Tạo bài viết báo cáo
+        $report_id = wp_insert_post( array(
+            'post_title'   => $report_title,
+            'post_content' => $report_content,
+            'post_type'    => 'bao_cao',
+            'post_status'  => 'publish',
+        ));
+        
+        if ( is_wp_error( $report_id ) ) {
+            return new WP_REST_Response( array(
+                'success' => false,
+                'message' => 'Không thể tạo báo cáo. Vui lòng thử lại sau.'
+            ), 500 );
+        }
+        
+        // Lưu meta data
+        update_post_meta( $report_id, '_reported_restaurant_id', $restaurant_id );
+        update_post_meta( $report_id, '_report_type', $report_type );
+        update_post_meta( $report_id, '_reporter_name', $reporter_name );
+        update_post_meta( $report_id, '_reporter_email', $reporter_email );
+        update_post_meta( $report_id, '_merge_status', 'pending' );
+        
+        // Lưu suggested changes nếu có
+        if ( $suggested_changes && is_array( $suggested_changes ) ) {
+            update_post_meta( $report_id, '_suggested_changes', wp_json_encode( $suggested_changes ) );
+        }
+        
+        return new WP_REST_Response( array(
+            'success'   => true,
+            'message'   => 'Cảm ơn bạn đã gửi báo cáo! Chúng tôi sẽ xem xét trong thời gian sớm nhất.',
+            'report_id' => $report_id
+        ), 201 );
+    }
+}
 
 new Can_Giuoc_Food_Core();
