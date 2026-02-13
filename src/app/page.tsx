@@ -3,6 +3,7 @@ import { Navbar } from '@/components/Navbar';
 import { RestaurantCard } from '@/components/RestaurantCard';
 import { HeroSection } from '@/components/HeroSection';
 import { fetchRestaurants, fetchTopRatedRestaurants, fetchNewestRestaurants, fetchStickyRestaurants } from '@/lib/api';
+import { TrackableLink } from '@/components/TrackableLink';
 import Image from 'next/image';
 
 // Revalidate trang chủ mỗi 1 giờ
@@ -71,7 +72,7 @@ export default async function Home() {
                       src={topRatedRestaurants[0].featured_media_url || 'https://placehold.co/800x600?text=Top+1'}
                       alt={topRatedRestaurants[0].title.rendered}
                       fill
-                      className="object-cover group-hover:scale-105 transition-transform duration-500"
+                      className={`object-cover group-hover:scale-105 transition-transform duration-500 ${(topRatedRestaurants[0] as any).is_closed ? 'opacity-50 grayscale' : ''}`}
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
 
@@ -79,6 +80,13 @@ export default async function Home() {
                     <div className="absolute top-4 left-4 bg-gradient-to-br from-yellow-400 to-yellow-600 text-white w-16 h-16 md:w-20 md:h-20 rounded-full flex items-center justify-center font-extrabold text-2xl md:text-3xl shadow-2xl border-4 border-white">
                       1
                     </div>
+
+                    {/* Badge Đã Đóng Cửa */}
+                    {(topRatedRestaurants[0] as any).is_closed && (
+                      <div className="absolute top-4 right-4 bg-red-600 text-white px-4 py-2 rounded-full font-bold text-sm shadow-lg flex items-center gap-2">
+                        ⛔ ĐÃ ĐÓNG CỬA
+                      </div>
+                    )}
 
                     {/* Info */}
                     <div className="absolute bottom-0 left-0 right-0 p-6 text-white">
@@ -88,9 +96,13 @@ export default async function Home() {
                       <p className="text-sm md:text-base text-white/90 mb-3 flex items-center gap-2">
                         <span>📍</span> {topRatedRestaurants[0].address || 'Cần Giuộc'}
                       </p>
-                      <Link href={`/quan-an/${topRatedRestaurants[0].slug}`} className="inline-block bg-orange-500 hover:bg-orange-600 text-white px-6 py-3 rounded-full font-bold transition-all">
+                      <TrackableLink
+                        href={`/quan-an/${topRatedRestaurants[0].slug}`}
+                        restaurantId={topRatedRestaurants[0].id}
+                        className="inline-block bg-orange-500 hover:bg-orange-600 text-white px-6 py-3 rounded-full font-bold transition-all"
+                      >
                         Xem chi tiết
-                      </Link>
+                      </TrackableLink>
                     </div>
                   </div>
                 </div>
@@ -108,19 +120,30 @@ export default async function Home() {
                   };
 
                   return (
-                    <Link key={restaurant.id} href={`/quan-an/${restaurant.slug}`} className="group relative bg-white rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-all">
+                    <TrackableLink
+                      key={restaurant.id}
+                      href={`/quan-an/${restaurant.slug}`}
+                      restaurantId={restaurant.id}
+                      className="group relative bg-white rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-all"
+                    >
                       <div className="flex gap-4 p-4">
                         <div className="relative w-24 h-24 md:w-20 md:h-20 flex-shrink-0 rounded-lg overflow-hidden md:aspect-square">
                           <Image
                             src={restaurant.featured_media_url || 'https://placehold.co/200x200?text=No+Image'}
                             alt={restaurant.title.rendered}
                             fill
-                            className="object-cover group-hover:scale-110 transition-transform duration-300"
+                            className={`object-cover group-hover:scale-110 transition-transform duration-300 ${(restaurant as any).is_closed ? 'opacity-50 grayscale' : ''}`}
                           />
                           {/* Huy chương nhỏ */}
                           <div className={`absolute -top-2 -left-2 bg-gradient-to-br ${medalColors[rank]} text-white w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg shadow-lg border-2 border-white`}>
                             {rank}
                           </div>
+                          {/* Badge Đã Đóng Cửa */}
+                          {(restaurant as any).is_closed && (
+                            <div className="absolute top-1 right-1 bg-red-600 text-white px-2 py-1 rounded text-[10px] font-bold shadow-md">
+                              ⛔ ĐÓNG
+                            </div>
+                          )}
                         </div>
                         <div className="flex-1 min-w-0">
                           <h4 className="font-bold text-gray-900 text-sm md:text-sm mb-1 line-clamp-2 group-hover:text-orange-600 transition-colors">
@@ -134,7 +157,7 @@ export default async function Home() {
                           </p>
                         </div>
                       </div>
-                    </Link>
+                    </TrackableLink>
                   );
                 })}
               </div>

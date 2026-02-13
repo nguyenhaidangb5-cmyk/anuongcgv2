@@ -31,6 +31,21 @@ class Can_Giuoc_Food_Core {
         
         // --- 9. MEDIA UPLOADER SCRIPT ---
         add_action( 'admin_footer', array( $this, 'enqueue_media_uploader_script' ) );
+        
+        // --- 10. ENTERPRISE FEATURES ---
+        add_action( 'init', array( $this, 'register_custom_post_status' ) );
+        add_action( 'add_meta_boxes', array( $this, 'add_top5_scheduling_meta_box' ) );
+        add_action( 'save_post', array( $this, 'save_top5_scheduling_data' ) );
+        add_action( 'rest_api_init', array( $this, 'register_tracking_endpoint' ) );
+        add_action( 'rest_api_init', array( $this, 'register_top5_rest_fields' ) );
+        
+        // --- 11. SMART CONTRIBUTION ---
+        add_action( 'init', array( $this, 'register_cpt_bao_cao' ) );
+        add_action( 'add_meta_boxes', array( $this, 'add_report_processing_meta_box' ) );
+        add_action( 'save_post', array( $this, 'save_report_meta_data' ) );
+        add_action( 'wp_ajax_approve_and_merge', array( $this, 'handle_approve_and_merge' ) );
+        add_action( 'admin_footer', array( $this, 'enqueue_report_processing_script' ) );
+        add_action( 'rest_api_init', array( $this, 'register_report_submission_endpoint' ) );
     }
 
     /**
@@ -1408,6 +1423,219 @@ class Can_Giuoc_Food_Core {
         <p class="description">Bài viết sẽ hiển thị ở đầu danh sách trên trang chủ.</p>
         <?php
     }
+
+    // ============================================================
+    // ENTERPRISE FEATURES: TOP 5 PRO & SMART CONTRIBUTION
+    // ============================================================
+
+    /**
+     * ENTERPRISE 1: Register Custom Post Status "Completed"
+     */
+    public function register_custom_post_status() {
+        register_post_status( 'completed', array(
+            'label'                     => _x( 'Đã xử lý', 'post status', 'can-giuoc-food' ),
+            'public'                    => true,
+            'exclude_from_search'       => false,
+            'show_in_admin_all_list'    => true,
+            'show_in_admin_status_list' => true,
+            'label_count'               => _n_noop( 'Đã xử lý <span class="count">(%s)</span>', 'Đã xử lý <span class="count">(%s)</span>', 'can-giuoc-food' ),
+        ));
+    }
+
+    /**
+     * ENTERPRISE 2: Top 5 Pro - Scheduling Meta Box
+     */
+    public function add_top5_scheduling_meta_box() {
+        add_meta_box(
+            'top5_scheduling',
+            '📅 Lịch hiển thị Top 5 (Pro)',
+            array( $this, 'render_top5_scheduling_meta_box' ),
+            'quan_an',
+            'side',
+            'high'
+        );
+    }
+
+    public function render_top5_scheduling_meta_box( $post ) {
+        wp_nonce_field( 'save_top5_scheduling', 'top5_scheduling_nonce' );
+        
+        $start_date = get_post_meta( $post->ID, '_top_start_date', true );
+        $end_date = get_post_meta( $post->ID, '_top_end_date', true );
+        $click_count = get_post_meta( $post->ID, '_ads_click_count', true ) ?: 0;
+        $is_closed = get_post_meta( $post->ID, '_is_closed', true );
+        ?>
+        <div class="top5-scheduling-box">
+            <p>
+                <label for="top_start_date"><strong>📅 Ngày bắt đầu:</strong></label><br>
+                <input type="date" id="top_start_date" name="top_start_date" value="<?php echo esc_attr( $start_date ); ?>" style="width: 100%;" />
+            </p>
+            
+            <p>
+                <label for="top_end_date"><strong>📅 Ngày kết thúc:</strong></label><br>
+                <input type="date" id="top_end_date" name="top_end_date" value="<?php echo esc_attr( $end_date ); ?>" style="width: 100%;" />
+            </p>
+            
+            <hr>
+            
+            <p>
+                <strong>📊 Số lượt click:</strong><br>
+                <input type="text" value="<?php echo esc_attr( $click_count ); ?>" readonly style="width: 100%; background: #f0f0f0; font-size: 18px; font-weight: bold; text-align: center;" />
+                <span class="description">Chỉ đọc - Tự động cập nhật khi khách click</span>
+            </p>
+            
+            <hr>
+            
+            <p>
+                <label>
+                    <input type="checkbox" name="is_closed" value="1" <?php checked( $is_closed, '1' ); ?> />
+                    <strong>⛔ Quán đã đóng cửa</strong>
+                </label><br>
+                <span class="description">Giữ Published nhưng hiển thị badge "Đã đóng cửa"</span>
+            </p>
+        </div>
+        <?php
+    }
+
+    /**
+     * ENTERPRISE 3: Save Top 5 Scheduling Data
+     */
+    public function save_top5_scheduling_data( $post_id ) {
+        if ( ! isset( $_POST['top5_scheduling_nonce'] ) || ! wp_verify_nonce( $_POST['top5_scheduling_nonce'], 'save_top5_scheduling' ) ) {
+            return;
+        }
+        
+        if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) return;
+        if ( ! current_user_can( 'edit_post', $post_id ) ) return;
+        
+        // Save dates
+        if ( isset( $_POST['top_start_date'] ) ) {
+            update_post_meta( $post_id, '_top_start_date', sanitize_text_field( $_POST['top_start_date'] ) );
+        }
+        
+        if ( isset( $_POST['top_end_date'] ) ) {
+            update_post_meta( $post_id, '_top_end_date', sanitize_text_field( $_POST['top_end_date'] ) );
+        }
+        
+        // Save is_closed
+        $is_closed = isset( $_POST['is_closed'] ) ? '1' : '0';
+        update_post_meta( $post_id, '_is_closed', $is_closed );
+    }
+
+    /**
+     * ENTERPRISE 4: REST API - Click Tracking Endpoint with Rate Limiting
+     */
+    public function register_tracking_endpoint() {
+        register_rest_route( 'cg/v1', '/track-click/(?P<id>\d+)', array(
+            'methods'  => 'POST',
+            'callback' => array( $this, 'track_restaurant_click' ),
+            'permission_callback' => '__return_true',
+            'args' => array(
+                'id' => array(
+                    'validate_callback' => function( $param ) {
+                        return is_numeric( $param );
+                    }
+                ),
+            ),
+        ));
+    }
+
+    public function track_restaurant_click( $request ) {
+        $post_id = $request['id'];
+        $user_ip = $this->get_client_ip();
+        
+        // Rate Limiting: 1 click per IP per restaurant per 24h
+        $transient_key = 'click_track_' . $post_id . '_' . md5( $user_ip );
+        
+        if ( get_transient( $transient_key ) ) {
+            return new WP_REST_Response( array( 
+                'success' => false, 
+                'message' => 'Rate limit exceeded' 
+            ), 429 );
+        }
+        
+        // Increment click count
+        $current_count = get_post_meta( $post_id, '_ads_click_count', true ) ?: 0;
+        $new_count = intval( $current_count ) + 1;
+        update_post_meta( $post_id, '_ads_click_count', $new_count );
+        
+        // Set transient for 24 hours
+        set_transient( $transient_key, true, 24 * HOUR_IN_SECONDS );
+        
+        return new WP_REST_Response( array( 
+            'success' => true, 
+            'count' => $new_count 
+        ), 200 );
+    }
+
+    /**
+     * Helper: Get Client IP
+     */
+    private function get_client_ip() {
+        $ip_keys = array( 'HTTP_CLIENT_IP', 'HTTP_X_FORWARDED_FOR', 'HTTP_X_FORWARDED', 'HTTP_X_CLUSTER_CLIENT_IP', 'HTTP_FORWARDED_FOR', 'HTTP_FORWARDED', 'REMOTE_ADDR' );
+        
+        foreach ( $ip_keys as $key ) {
+            if ( array_key_exists( $key, $_SERVER ) === true ) {
+                foreach ( explode( ',', $_SERVER[ $key ] ) as $ip ) {
+                    $ip = trim( $ip );
+                    if ( filter_var( $ip, FILTER_VALIDATE_IP ) !== false ) {
+                        return $ip;
+                    }
+                }
+            }
+        }
+        
+        return $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
+    }
+
+    /**
+     * ENTERPRISE 5: REST API Fields for Scheduling
+     */
+    public function register_top5_rest_fields() {
+        // is_active_top_pick: Check if restaurant is in valid date range
+        register_rest_field( 'quan_an', 'is_active_top_pick', array(
+            'get_callback' => function( $post ) {
+                $is_top = get_post_meta( $post['id'], '_is_top_pick', true );
+                if ( ! $is_top ) return false;
+                
+                $start = get_post_meta( $post['id'], '_top_start_date', true );
+                $end = get_post_meta( $post['id'], '_top_end_date', true );
+                $today = current_time( 'Y-m-d' );
+                
+                // Check if within date range
+                if ( $start && $today < $start ) return false;
+                if ( $end && $today > $end ) return false;
+                
+                return true;
+            },
+            'schema' => array(
+                'description' => 'Whether restaurant is actively in Top 5 (considering date range)',
+                'type'        => 'boolean',
+            ),
+        ));
+        
+        // is_closed field
+        register_rest_field( 'quan_an', 'is_closed', array(
+            'get_callback' => function( $post ) {
+                return get_post_meta( $post['id'], '_is_closed', true ) === '1';
+            },
+            'schema' => array(
+                'description' => 'Whether restaurant is permanently closed',
+                'type'        => 'boolean',
+            ),
+        ));
+        
+        // ads_click_count field
+        register_rest_field( 'quan_an', 'ads_click_count', array(
+            'get_callback' => function( $post ) {
+                return intval( get_post_meta( $post['id'], '_ads_click_count', true ) ?: 0 );
+            },
+            'schema' => array(
+                'description' => 'Number of clicks on Top 5 ads',
+                'type'        => 'integer',
+            ),
+        ));
+    }
 }
+
 
 new Can_Giuoc_Food_Core();

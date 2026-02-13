@@ -252,3 +252,34 @@ export async function fetchStickyRestaurants(limit: number = 8): Promise<Restaur
         return [];
     }
 }
+
+/**
+ * ENTERPRISE: Track click on Top 5 restaurant
+ * Uses Beacon API for non-blocking tracking with fallback to fetch
+ */
+export async function trackRestaurantClick(restaurantId: number): Promise<void> {
+    const url = `${API_URL}/cg/v1/track-click/${restaurantId}`;
+
+    try {
+        // Try Beacon API first (non-blocking, works even if user navigates away)
+        if (navigator.sendBeacon) {
+            const blob = new Blob([JSON.stringify({ id: restaurantId })],
+                { type: 'application/json' });
+            const sent = navigator.sendBeacon(url, blob);
+
+            if (sent) {
+                return; // Successfully sent via Beacon
+            }
+        }
+
+        // Fallback to fetch (for browsers without Beacon API)
+        await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: restaurantId })
+        });
+    } catch (error) {
+        // Silently fail - tracking shouldn't break user experience
+        console.debug('Click tracking failed:', error);
+    }
+}

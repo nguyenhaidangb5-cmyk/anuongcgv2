@@ -7,6 +7,7 @@ import { Restaurant, BADGE_LABELS } from '@/types/wordpress';
 import { useParams, useRouter } from 'next/navigation';
 import { fetchRestaurantBySlug } from '@/lib/api';
 import { ImageGallery } from '@/components/ImageGallery';
+import { ReportModal } from '@/components/ReportModal';
 
 const getBadgeStyle = (label: string) => {
     const l = label.toLowerCase();
@@ -52,6 +53,7 @@ export default function RestaurantDetailPage() {
     const slug = params.slug as string;
     const [data, setData] = useState<Restaurant | null>(null);
     const [loading, setLoading] = useState(true);
+    const [isReportModalOpen, setIsReportModalOpen] = useState(false);
 
     useEffect(() => {
         async function fetchData() {
@@ -266,6 +268,15 @@ export default function RestaurantDetailPage() {
                                         <span>Gọi ngay</span>
                                     </a>
                                 )}
+
+                                {/* Nút Báo cáo */}
+                                <button
+                                    onClick={() => setIsReportModalOpen(true)}
+                                    className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-3 rounded-xl flex items-center justify-center gap-2 transition-all border-2 border-gray-200"
+                                >
+                                    <span className="text-lg">🚩</span>
+                                    <span>Báo cáo lỗi</span>
+                                </button>
                             </div>
                         </div>
 
@@ -334,8 +345,27 @@ export default function RestaurantDetailPage() {
                             <span>Gọi ngay</span>
                         </a>
                     )}
+
+                    {/* Nút Báo cáo (Mobile) */}
+                    <button
+                        onClick={() => setIsReportModalOpen(true)}
+                        className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 border-2 border-gray-300"
+                    >
+                        <span className="text-lg">🚩</span>
+                        <span>Báo cáo</span>
+                    </button>
                 </div>
             </div>
+
+            {/* Report Modal */}
+            {data && (
+                <ReportModal
+                    restaurantId={data.id}
+                    restaurantName={data.title.rendered}
+                    isOpen={isReportModalOpen}
+                    onClose={() => setIsReportModalOpen(false)}
+                />
+            )}
         </div>
     );
 }
