@@ -172,18 +172,46 @@ function ExplorePageContent() {
 
         // Filter by services/badges
         if (selectedServices.length > 0) {
-            const restaurantBadges = restaurant.badges || [];
-            // Map một số service key cũ sang key mới nếu cần
             const matchesService = selectedServices.every(service => {
-                const s = service === 'verified' ? 'is_verified' : service;
-                return restaurantBadges.includes(s) || restaurantBadges.includes(service);
+                // Map service keys to restaurant boolean fields
+                switch (service) {
+                    case 'verified':
+                    case 'is_verified':
+                        return restaurant.is_verified === true;
+                    case 'has_ac':
+                        return restaurant.has_ac === true;
+                    case 'free_parking':
+                    case 'has_parking':
+                        return restaurant.has_parking === true;
+                    case 'family_friendly':
+                    case 'is_family_friendly':
+                        return restaurant.is_family_friendly === true;
+                    case 'nice_view':
+                    case 'has_nice_view':
+                        return restaurant.has_nice_view === true;
+                    case 'trending':
+                    case 'is_trending':
+                        return restaurant.is_trending === true;
+                    case 'good_cheap':
+                    case 'is_good_cheap':
+                        return restaurant.is_good_cheap === true;
+                    default:
+                        return false;
+                }
             });
             if (!matchesService) return false;
         }
 
-        // Filter by food type (SỬ DỤNG food_type_slugs TỪ API)
+        // Filter by food type (SỬ DỤNG taxonomy từ _embedded)
         if (selectedFoodTypes.length > 0) {
-            const foodTypeSlugs = (restaurant as any).food_type_slugs || [];
+            // Lấy food_type terms từ _embedded nếu có
+            const embedded = (restaurant as any)._embedded;
+            const foodTypeTerms = embedded?.['wp:term']?.find((termGroup: any[]) =>
+                termGroup.some((term: any) => term.taxonomy === 'food_type')
+            ) || [];
+
+            const foodTypeSlugs = foodTypeTerms.map((term: any) => term.slug);
+
             const matchesFoodType = selectedFoodTypes.some(type =>
                 foodTypeSlugs.includes(type)
             );
