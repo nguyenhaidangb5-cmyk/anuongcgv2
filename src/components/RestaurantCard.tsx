@@ -89,6 +89,39 @@ export const RestaurantCard: React.FC<RestaurantCardProps> = ({ data }) => {
                         <span className="flex-shrink-0">📍</span>
                         <span className="line-clamp-1 truncate text-[10px] md:text-xs">{data.address || 'Đang cập nhật địa chỉ'}</span>
                     </div>
+
+                    {/* Utility Badges */}
+                    <div className="flex flex-wrap gap-1 md:gap-1.5">
+                        {/* Verified Badge - Prominent Display */}
+                        {data.is_verified && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] md:text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+                                <span>✓</span>
+                                <span className="hidden md:inline">Đã xác thực</span>
+                            </span>
+                        )}
+
+                        {/* Other Utility Badges (max 3) */}
+                        {[
+                            { key: 'has_ac', label: 'Máy lạnh', icon: '❄️' },
+                            { key: 'has_parking', label: 'Giữ xe', icon: '🅿️' },
+                            { key: 'is_family_friendly', label: 'Gia đình', icon: '👨‍👩‍👧‍👦' },
+                            { key: 'has_nice_view', label: 'View đẹp', icon: '📸' },
+                            { key: 'is_good_cheap', label: 'Bổ rẻ', icon: '💰' },
+                            { key: 'is_authentic', label: 'Chuẩn vị', icon: '⭐' },
+                        ]
+                            .filter(badge => data[badge.key as keyof Restaurant])
+                            .slice(0, 3)
+                            .map((badge, idx) => (
+                                <span
+                                    key={idx}
+                                    className="inline-flex items-center gap-0.5 md:gap-1 px-1.5 md:px-2 py-0.5 rounded-full text-[9px] md:text-xs font-medium bg-gray-100 text-gray-600 border border-gray-200"
+                                >
+                                    <span className="text-[10px] md:text-xs">{badge.icon}</span>
+                                    <span className="hidden md:inline">{badge.label}</span>
+                                </span>
+                            ))
+                        }
+                    </div>
                 </div>
 
                 <div className="flex flex-row md:flex-col lg:flex-row items-center justify-between mt-auto md:mt-0 gap-2 md:gap-0 md:border-t md:border-gray-50 md:pt-3">

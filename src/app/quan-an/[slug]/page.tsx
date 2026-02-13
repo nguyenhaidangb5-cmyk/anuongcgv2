@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { Restaurant, BADGE_LABELS } from '@/types/wordpress';
 import { useParams, useRouter } from 'next/navigation';
 import { fetchRestaurantBySlug } from '@/lib/api';
+import { ImageGallery } from '@/components/ImageGallery';
 
 const getBadgeStyle = (label: string) => {
     const l = label.toLowerCase();
@@ -216,6 +217,24 @@ export default function RestaurantDetailPage() {
                                     dangerouslySetInnerHTML={{ __html: data.content.rendered }}
                                 />
                             </div>
+                        )}
+
+                        {/* Menu Images Section */}
+                        {data.menu_images && data.menu_images.length > 0 && (
+                            <ImageGallery
+                                images={data.menu_images}
+                                title="Thực Đơn"
+                                icon="📋"
+                            />
+                        )}
+
+                        {/* Gallery Images Section */}
+                        {data.gallery_images && data.gallery_images.length > 0 && (
+                            <ImageGallery
+                                images={data.gallery_images}
+                                title="Không Gian Quán"
+                                icon="🏪"
+                            />
                         )}
 
                     </div>
