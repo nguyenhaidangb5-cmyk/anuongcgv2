@@ -57,10 +57,21 @@ export interface Restaurant {
     has_alcohol?: boolean;
     is_shipping?: boolean;
 
+    // Image Galleries (NEW: UX Upgrade)
+    menu_images?: ImageObject[];
+    gallery_images?: ImageObject[];
+
     // Legacy/Helper fields (giữ lại nếu code cũ còn dùng)
     region?: string;
     priceRange?: string; // alias cũ của price_range
     foodType?: string;
+}
+
+export interface ImageObject {
+    sourceUrl: string;
+    altText: string;
+    width: number;
+    height: number;
 }
 
 export const BADGE_LABELS: Record<string, { label: string; icon: string }> = {

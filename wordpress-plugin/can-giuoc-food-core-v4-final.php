@@ -28,6 +28,9 @@ class Can_Giuoc_Food_Core {
         
         // --- 8. STICKY POST SUPPORT ---
         add_action( 'add_meta_boxes', array( $this, 'add_sticky_support_to_cpt' ) );
+        
+        // --- 9. MEDIA UPLOADER SCRIPT ---
+        add_action( 'admin_footer', array( $this, 'enqueue_media_uploader_script' ) );
     }
 
     /**
@@ -198,6 +201,26 @@ class Can_Giuoc_Food_Core {
             'quan_an',
             'normal',
             'high'
+        );
+        
+        // Meta Box: Ảnh Thực Đơn
+        add_meta_box(
+            'menu_images_meta_box',
+            '🍽️ Ảnh Thực Đơn',
+            array( $this, 'render_menu_images_meta_box' ),
+            'quan_an',
+            'normal',
+            'default'
+        );
+        
+        // Meta Box: Ảnh Không Gian Quán
+        add_meta_box(
+            'gallery_images_meta_box',
+            '📸 Ảnh Không Gian Quán',
+            array( $this, 'render_gallery_images_meta_box' ),
+            'quan_an',
+            'normal',
+            'default'
         );
     }
 
@@ -438,6 +461,131 @@ class Can_Giuoc_Food_Core {
         <?php
     }
 
+    /**
+     * Render Meta Box: Ảnh Thực Đơn
+     */
+    public function render_menu_images_meta_box( $post ) {
+        $menu_images = get_post_meta( $post->ID, '_cg_menu_images', true );
+        $menu_images = $menu_images ? $menu_images : array();
+        wp_nonce_field( 'save_menu_images', 'menu_images_nonce' );
+        ?>
+        <div class="cg-image-uploader">
+            <p class="description">Tải lên ảnh thực đơn của quán (giá tiền, món ăn). Khách hàng có thể zoom để xem rõ giá.</p>
+            <div class="cg-images-container" id="menu-images-container">
+                <?php
+                if ( ! empty( $menu_images ) && is_array( $menu_images ) ) {
+                    foreach ( $menu_images as $image_id ) {
+                        $image_url = wp_get_attachment_image_url( $image_id, 'thumbnail' );
+                        if ( $image_url ) {
+                            echo '<div class="cg-image-item" data-id="' . esc_attr( $image_id ) . '">';
+                            echo '<img src="' . esc_url( $image_url ) . '" />';
+                            echo '<button type="button" class="cg-remove-image">✕</button>';
+                            echo '<input type="hidden" name="cg_menu_images[]" value="' . esc_attr( $image_id ) . '" />';
+                            echo '</div>';
+                        }
+                    }
+                }
+                ?>
+            </div>
+            <button type="button" class="button button-primary cg-add-images" data-target="menu">
+                ➕ Thêm ảnh thực đơn
+            </button>
+        </div>
+        <style>
+            .cg-image-uploader { padding: 10px 0; }
+            .cg-images-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; margin: 15px 0; }
+            .cg-image-item { position: relative; border: 2px solid #ddd; border-radius: 8px; overflow: hidden; aspect-ratio: 1; }
+            .cg-image-item img { width: 100%; height: 100%; object-fit: cover; }
+            .cg-remove-image { position: absolute; top: 5px; right: 5px; background: #dc3232; color: white; border: none; border-radius: 50%; width: 24px; height: 24px; cursor: pointer; font-size: 14px; line-height: 1; }
+            .cg-remove-image:hover { background: #a00; }
+        </style>
+        <?php
+    }
+
+    /**
+     * Render Meta Box: Ảnh Không Gian Quán
+     */
+    public function render_gallery_images_meta_box( $post ) {
+        $gallery_images = get_post_meta( $post->ID, '_cg_gallery_images', true );
+        $gallery_images = $gallery_images ? $gallery_images : array();
+        wp_nonce_field( 'save_gallery_images', 'gallery_images_nonce' );
+        ?>
+        <div class="cg-image-uploader">
+            <p class="description">Tải lên ảnh không gian quán (bàn ghế, trang trí, view đẹp). Giúp khách hàng hình dung trước khi đến.</p>
+            <div class="cg-images-container" id="gallery-images-container">
+                <?php
+                if ( ! empty( $gallery_images ) && is_array( $gallery_images ) ) {
+                    foreach ( $gallery_images as $image_id ) {
+                        $image_url = wp_get_attachment_image_url( $image_id, 'thumbnail' );
+                        if ( $image_url ) {
+                            echo '<div class="cg-image-item" data-id="' . esc_attr( $image_id ) . '">';
+                            echo '<img src="' . esc_url( $image_url ) . '" />';
+                            echo '<button type="button" class="cg-remove-image">✕</button>';
+                            echo '<input type="hidden" name="cg_gallery_images[]" value="' . esc_attr( $image_id ) . '" />';
+                            echo '</div>';
+                        }
+                    }
+                }
+                ?>
+            </div>
+            <button type="button" class="button button-primary cg-add-images" data-target="gallery">
+                ➕ Thêm ảnh không gian
+            </button>
+        </div>
+        <?php
+    }
+
+    /**
+     * Enqueue Media Uploader Script
+     */
+    public function enqueue_media_uploader_script() {
+        global $post_type;
+        if ( 'quan_an' === $post_type ) {
+            wp_enqueue_media();
+            ?>
+            <script>
+            jQuery(document).ready(function($) {
+                // Xử lý nút "Thêm ảnh"
+                $('.cg-add-images').on('click', function(e) {
+                    e.preventDefault();
+                    var target = $(this).data('target');
+                    var container = $('#' + target + '-images-container');
+                    var fieldName = 'cg_' + target + '_images[]';
+                    
+                    var frame = wp.media({
+                        title: 'Chọn ảnh',
+                        button: { text: 'Sử dụng ảnh này' },
+                        multiple: true
+                    });
+                    
+                    frame.on('select', function() {
+                        var attachments = frame.state().get('selection').toJSON();
+                        attachments.forEach(function(attachment) {
+                            var imageHtml = '<div class="cg-image-item" data-id="' + attachment.id + '">' +
+                                '<img src="' + attachment.sizes.thumbnail.url + '" />' +
+                                '<button type="button" class="cg-remove-image">✕</button>' +
+                                '<input type="hidden" name="' + fieldName + '" value="' + attachment.id + '" />' +
+                                '</div>';
+                            container.append(imageHtml);
+                        });
+                    });
+                    
+                    frame.open();
+                });
+                
+                // Xử lý nút "Xóa ảnh"
+                $(document).on('click', '.cg-remove-image', function(e) {
+                    e.preventDefault();
+                    $(this).closest('.cg-image-item').fadeOut(300, function() {
+                        $(this).remove();
+                    });
+                });
+            });
+            </script>
+            <?php
+        }
+    }
+
     public function save_custom_meta_data( $post_id ) {
         if ( ! isset( $_POST['cg_meta_nonce'] ) || ! wp_verify_nonce( $_POST['cg_meta_nonce'], 'save_cg_meta' ) ) return;
         if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) return;
@@ -465,6 +613,22 @@ class Can_Giuoc_Food_Core {
         foreach ( $boolean_fields as $field ) {
             $value = isset( $_POST[ $field ] ) ? '1' : '0';
             update_post_meta( $post_id, '_' . $field, $value );
+        }
+
+        // --- LƯU ẢNH THỰC ĐƠN ---
+        if ( isset( $_POST['menu_images_nonce'] ) && wp_verify_nonce( $_POST['menu_images_nonce'], 'save_menu_images' ) ) {
+            $menu_images = isset( $_POST['cg_menu_images'] ) && is_array( $_POST['cg_menu_images'] ) 
+                ? array_map( 'intval', $_POST['cg_menu_images'] ) 
+                : array();
+            update_post_meta( $post_id, '_cg_menu_images', $menu_images );
+        }
+
+        // --- LƯU ẢNH KHÔNG GIAN QUÁN ---
+        if ( isset( $_POST['gallery_images_nonce'] ) && wp_verify_nonce( $_POST['gallery_images_nonce'], 'save_gallery_images' ) ) {
+            $gallery_images = isset( $_POST['cg_gallery_images'] ) && is_array( $_POST['cg_gallery_images'] ) 
+                ? array_map( 'intval', $_POST['cg_gallery_images'] ) 
+                : array();
+            update_post_meta( $post_id, '_cg_gallery_images', $gallery_images );
         }
 
         // --- XỬ LÝ STICKY POST ---
@@ -624,6 +788,78 @@ class Can_Giuoc_Food_Core {
                 return null;
             },
             'schema' => array( 'type' => 'number' ),
+        ));
+
+        // --- MENU IMAGES ---
+        register_rest_field( 'quan_an', 'menu_images', array(
+            'get_callback' => function( $object ) {
+                $image_ids = get_post_meta( $object['id'], '_cg_menu_images', true );
+                if ( empty( $image_ids ) || ! is_array( $image_ids ) ) {
+                    return array();
+                }
+                
+                $images = array();
+                foreach ( $image_ids as $image_id ) {
+                    $image_data = wp_get_attachment_image_src( $image_id, 'full' );
+                    if ( $image_data ) {
+                        $images[] = array(
+                            'sourceUrl' => $image_data[0],
+                            'altText' => get_post_meta( $image_id, '_wp_attachment_image_alt', true ) ?: '',
+                            'width' => $image_data[1],
+                            'height' => $image_data[2],
+                        );
+                    }
+                }
+                return $images;
+            },
+            'schema' => array(
+                'type' => 'array',
+                'items' => array(
+                    'type' => 'object',
+                    'properties' => array(
+                        'sourceUrl' => array( 'type' => 'string' ),
+                        'altText' => array( 'type' => 'string' ),
+                        'width' => array( 'type' => 'integer' ),
+                        'height' => array( 'type' => 'integer' ),
+                    ),
+                ),
+            ),
+        ));
+
+        // --- GALLERY IMAGES ---
+        register_rest_field( 'quan_an', 'gallery_images', array(
+            'get_callback' => function( $object ) {
+                $image_ids = get_post_meta( $object['id'], '_cg_gallery_images', true );
+                if ( empty( $image_ids ) || ! is_array( $image_ids ) ) {
+                    return array();
+                }
+                
+                $images = array();
+                foreach ( $image_ids as $image_id ) {
+                    $image_data = wp_get_attachment_image_src( $image_id, 'full' );
+                    if ( $image_data ) {
+                        $images[] = array(
+                            'sourceUrl' => $image_data[0],
+                            'altText' => get_post_meta( $image_id, '_wp_attachment_image_alt', true ) ?: '',
+                            'width' => $image_data[1],
+                            'height' => $image_data[2],
+                        );
+                    }
+                }
+                return $images;
+            },
+            'schema' => array(
+                'type' => 'array',
+                'items' => array(
+                    'type' => 'object',
+                    'properties' => array(
+                        'sourceUrl' => array( 'type' => 'string' ),
+                        'altText' => array( 'type' => 'string' ),
+                        'width' => array( 'type' => 'integer' ),
+                        'height' => array( 'type' => 'integer' ),
+                    ),
+                ),
+            ),
         ));
     }
 
