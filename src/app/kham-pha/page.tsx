@@ -131,11 +131,17 @@ function ExplorePageContent() {
 
     // Filter logic (client-side)
     const filteredRestaurants = restaurants.filter((restaurant) => {
-        // Filter by region
+        // Filter by region (SỬ DỤNG taxonomy từ _embedded)
         if (selectedRegions.length > 0) {
-            const restaurantRegion = restaurant.address || '';
+            const embedded = (restaurant as any)._embedded;
+            const regionTerms = embedded?.['wp:term']?.find((termGroup: any[]) =>
+                termGroup.some((term: any) => term.taxonomy === 'khu_vuc')
+            ) || [];
+
+            const regionNames = regionTerms.map((term: any) => term.name);
+
             const matchesRegion = selectedRegions.some(region =>
-                restaurantRegion.toLowerCase().includes(region.toLowerCase())
+                regionNames.includes(region)
             );
             if (!matchesRegion) return false;
         }
@@ -406,7 +412,8 @@ function ExplorePageContent() {
                                     { value: 'do-an-vat', label: '🍢 Đồ ăn vặt' },
                                     { value: 'dac-san-dia-phuong', label: '🎁 Đặc sản địa phương' },
                                     { value: 'mon-chay', label: '🥦 Món chay' },
-                                    { value: 'tra-sua', label: '🥤 Trà sữa/Cafe' }
+                                    { value: 'tra-sua-cafe', label: '🥤 Trà sữa/Cafe' },
+                                    { value: 'hai-san', label: '🦐 Hải sản' }
                                 ].map((type) => (
                                     <label key={type.value} className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-2 rounded-lg transition-colors">
                                         <input
@@ -628,7 +635,9 @@ function ExplorePageContent() {
                                         { value: 'quan-nhau', label: '🍻 Nhậu' },
                                         { value: 'com-mon-nuoc', label: '🍚 Cơm' },
                                         { value: 'do-an-vat', label: '🍢 Ăn vặt' },
-                                        { value: 'tra-sua', label: '🥤 Cafe' }
+                                        { value: 'tra-sua-cafe', label: '🥤 Cafe' },
+                                        { value: 'hai-san', label: '🦐 Hải sản' },
+                                        { value: 'mon-chay', label: '🥦 Chay' }
                                     ].map((type) => (
                                         <label key={type.value} className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg">
                                             <input

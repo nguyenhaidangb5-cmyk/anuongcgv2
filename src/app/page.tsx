@@ -30,9 +30,9 @@ export default async function Home() {
               { name: '🍻 Quán nhậu', category: 'quan-nhau' },
               { name: '🍚 Cơm/Món nước', category: 'com-mon-nuoc' },
               { name: '🦐 Hải sản', category: 'hai-san' },
-              { name: '🍢 Ăn vặt', category: 'do-an-vat' },
-              { name: '🎁 Đặc sản', category: 'dac-san-dia-phuong' },
-              { name: '🥤 Trà sữa', category: 'tra-sua' },
+              { name: '🍢 Đồ ăn vặt', category: 'do-an-vat' },
+              { name: '🎁 Đặc sản địa phương', category: 'dac-san-dia-phuong' },
+              { name: '🥤 Trà sữa/Cafe', category: 'tra-sua-cafe' },
               { name: '🥦 Món chay', category: 'mon-chay' }
             ].map((cat, idx) => (
               <Link
