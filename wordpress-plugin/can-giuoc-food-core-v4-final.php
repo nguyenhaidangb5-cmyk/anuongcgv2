@@ -1457,7 +1457,7 @@ class Can_Giuoc_Food_Core {
     }
 
     public function render_top5_scheduling_meta_box( $post ) {
-        wp_nonce_field( 'save_top5_scheduling', 'top5_scheduling_nonce' );
+        wp_nonce_field( 'top5_scheduling_nonce', 'top5_scheduling_nonce' );
         
         $start_date = get_post_meta( $post->ID, '_top_start_date', true );
         $end_date = get_post_meta( $post->ID, '_top_end_date', true );
@@ -1500,7 +1500,7 @@ class Can_Giuoc_Food_Core {
      * ENTERPRISE 3: Save Top 5 Scheduling Data
      */
     public function save_top5_scheduling_data( $post_id ) {
-        if ( ! isset( $_POST['top5_scheduling_nonce'] ) || ! wp_verify_nonce( $_POST['top5_scheduling_nonce'], 'save_top5_scheduling' ) ) {
+        if ( ! isset( $_POST['top5_scheduling_nonce'] ) || ! wp_verify_nonce( $_POST['top5_scheduling_nonce'], 'top5_scheduling_nonce' ) ) {
             return;
         }
         
