@@ -2010,50 +2010,55 @@ class Can_Giuoc_Food_Core {
         $screen = get_current_screen();
         if ( $screen && $screen->post_type === 'bao_cao' ) {
             ?>
-            <script>
-            // Updated AJAX handler for approve and merge button
-        jQuery(document).ready(function($) {
-            $('#approve-merge-btn').on('click', function() {
-                if (!confirm('Xác nhận cập nhật thông tin quán ăn theo báo cáo này?')) {
-                    return;
-                }
-                
-                const button = $(this);
-                const reportId = button.data('report-id');
-                const statusEl = $('#merge-status');
-                
-                button.prop('disabled', true);
-                button.text('⏳ Đang xử lý...');
-                statusEl.html('');
-                
-                $.ajax({
-                    url: ajaxurl,
-                    type: 'POST',
-                    data: {
-                        action: 'approve_and_merge',
-                        report_id: reportId,
-                        nonce: $('#report_processing_nonce_field').val()
-                    },    },
+            <script type="text/javascript">
+            jQuery(document).ready(function($) {
+                // One-Click Merge Handler
+                $('#approve-merge-btn').on('click', function(e) {
+                    e.preventDefault();
+                    
+                    if (!confirm('Xác nhận cập nhật thông tin quán ăn theo báo cáo này?')) {
+                        return;
+                    }
+                    
+                    var button = $(this);
+                    var reportId = button.data('report-id');
+                    var statusEl = $('#merge-status');
+                    
+                    // Disable button and show loading
+                    button.prop('disabled', true);
+                    button.text('⏳ Đang xử lý...');
+                    statusEl.html('');
+                    
+                    // Send AJAX request
+                    $.ajax({
+                        url: ajaxurl,
+                        type: 'POST',
+                        data: {
+                            action: 'approve_and_merge',
+                            report_id: reportId,
+                            nonce: $('#report_processing_nonce_field').val()
+                        },
                         success: function(response) {
-                        if (response.success) {
-                            statusEl.html('<span style="color: #00a32a;">✅ ' + response.data.message + '</span>');
-                            setTimeout(function() {
-                                location.reload();
-                            }, 1500);
-                        } else {
-                            statusEl.html('<span style="color: #d63638;">❌ ' + response.data.message + '</span>');
+                            if (response.success) {
+                                statusEl.html('<span style="color: #00a32a;">✅ ' + response.data.message + '</span>');
+                                setTimeout(function() {
+                                    location.reload();
+                                }, 1500);
+                            } else {
+                                statusEl.html('<span style="color: #d63638;">❌ ' + response.data.message + '</span>');
+                                button.prop('disabled', false);
+                                button.text('✔️ DUYỆT BÁO CÁO & CẬP NHẬT');
+                            }
+                        },
+                        error: function(xhr, status, error) {
+                            console.error('AJAX Error:', error);
+                            statusEl.html('<span style="color: #d63638;">❌ Lỗi kết nối</span>');
                             button.prop('disabled', false);
                             button.text('✔️ DUYỆT BÁO CÁO & CẬP NHẬT');
                         }
-                    },
-                    error: function() {
-                        statusEl.html('<span style="color: #d63638;">❌ Lỗi kết nối</span>');
-                        button.prop('disabled', false);
-                        button.text('✔️ DUYỆT BÁO CÁO & CẬP NHẬT');
-                    }
+                    });
                 });
             });
-        });    }
             </script>
             <?php
         }
