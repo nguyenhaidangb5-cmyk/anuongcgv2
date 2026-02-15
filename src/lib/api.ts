@@ -165,14 +165,48 @@ export async function fetchRestaurantBySlug(slug: string): Promise<Restaurant | 
 }
 
 /**
- * Fetch quán mới nhất
+ * Fetch quán mới nhất (có thể loại trừ một số ID)
  */
-export async function fetchNewestRestaurants(limit: number = 6): Promise<Restaurant[]> {
-    return fetchRestaurants({
+export async function fetchNewestRestaurants(limit: number = 6, excludeIds: number[] = []): Promise<Restaurant[]> {
+    const params: FetchRestaurantsParams = {
         per_page: limit,
         orderby: 'date',
         order: 'desc'
+    };
+
+    // Nếu có excludeIds, thêm vào query
+    const queryParams = new URLSearchParams({
+        per_page: limit.toString(),
+        orderby: 'date',
+        order: 'desc',
+        _embed: '1'
     });
+
+    if (excludeIds.length > 0) {
+        queryParams.append('exclude', excludeIds.join(','));
+    }
+
+    const url = `${API_URL}/wp/v2/quan_an?${queryParams.toString()}`;
+
+    try {
+        const response = await fetch(url, {
+            next: { revalidate: 10 }
+        });
+
+        if (!response.ok) {
+            return [];
+        }
+
+        const data = await response.json();
+        return (data as Restaurant[]).map(r => ({
+            ...r,
+            featured_media_url: fixWpUrl(r.featured_media_url),
+            thumbnail_url: fixWpUrl(r.thumbnail_url)
+        }));
+    } catch (error) {
+        console.error('Fetch error:', error);
+        return [];
+    }
 }
 
 /**
@@ -271,6 +305,86 @@ export async function fetchStickyRestaurants(limit: number = 8): Promise<Restaur
     } catch (error) {
         console.error('Fetch error:', error);
         return [];
+    }
+}
+
+/**
+ * Blog Post Interface
+ */
+export interface BlogPost {
+    id: number;
+    title: string;
+    slug: string;
+    date: string;
+    excerpt: string;
+    image: string;
+    content?: string;
+}
+
+/**
+ * Fetch blog posts từ WordPress standard posts
+ */
+export async function fetchBlogPosts(limit: number = 3): Promise<BlogPost[]> {
+    const url = `${API_URL}/wp/v2/posts?per_page=${limit}&_embed=1`;
+
+    try {
+        const response = await fetch(url, {
+            next: { revalidate: 60 } // Cache 1 phút
+        });
+
+        if (!response.ok) {
+            console.error('Blog API Error:', response.status);
+            return [];
+        }
+
+        const data = await response.json();
+
+        return data.map((post: any) => ({
+            id: post.id,
+            title: post.title?.rendered || '',
+            slug: post.slug,
+            date: post.date,
+            excerpt: post.excerpt?.rendered?.replace(/<[^>]*>/g, '') || '', // Strip HTML tags
+            image: fixWpUrl(post._embedded?.['wp:featuredmedia']?.[0]?.source_url || ''),
+            content: post.content?.rendered || ''
+        }));
+    } catch (error) {
+        console.error('Fetch blog posts error:', error);
+        return [];
+    }
+}
+
+/**
+ * Fetch single blog post by slug
+ */
+export async function fetchPostBySlug(slug: string): Promise<BlogPost | null> {
+    const url = `${API_URL}/wp/v2/posts?slug=${slug}&_embed=1`;
+
+    try {
+        const response = await fetch(url, {
+            next: { revalidate: 60 }
+        });
+
+        if (!response.ok) {
+            return null;
+        }
+
+        const data = await response.json();
+        if (data.length === 0) return null;
+
+        const post = data[0];
+        return {
+            id: post.id,
+            title: post.title?.rendered || '',
+            slug: post.slug,
+            date: post.date,
+            excerpt: post.excerpt?.rendered?.replace(/<[^>]*>/g, '') || '',
+            image: fixWpUrl(post._embedded?.['wp:featuredmedia']?.[0]?.source_url || ''),
+            content: fixWpUrl(post.content?.rendered || '')
+        };
+    } catch (error) {
+        console.error('Fetch post by slug error:', error);
+        return null;
     }
 }
 

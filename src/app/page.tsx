@@ -2,18 +2,27 @@ import Link from 'next/link';
 import { Navbar } from '@/components/Navbar';
 import { RestaurantCard } from '@/components/RestaurantCard';
 import { HeroSection } from '@/components/HeroSection';
-import { fetchRestaurants, fetchTopRatedRestaurants, fetchNewestRestaurants, fetchStickyRestaurants } from '@/lib/api';
+import { fetchNewestRestaurants, fetchStickyRestaurants, fetchBlogPosts } from '@/lib/api';
 import { TrackableLink } from '@/components/TrackableLink';
+import { CollectionCarousel } from '@/components/CollectionCarousel';
+import { BlogGrid } from '@/components/BlogGrid';
 import Image from 'next/image';
 
 // Revalidate trang chủ mỗi 1 giờ
 export const revalidate = 10;
 
 export default async function Home() {
-  // Fetch dữ liệu thật từ WordPress
-  const topRatedRestaurants = await fetchTopRatedRestaurants(5);
-  const newestRestaurants = await fetchNewestRestaurants(6);
-  const stickyRestaurants = await fetchStickyRestaurants(8);
+  // Step 1: Fetch Top 5 (Sticky posts)
+  const top5Restaurants = await fetchStickyRestaurants(5);
+
+  // Step 2: Extract IDs to exclude from new arrivals
+  const excludeIds = top5Restaurants.map(r => r.id);
+
+  // Step 3: Fetch New Arrivals (excluding Top 5)
+  const newestRestaurants = await fetchNewestRestaurants(8, excludeIds);
+
+  // Step 4: Fetch Blog Posts
+  const blogPosts = await fetchBlogPosts(3);
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
@@ -62,17 +71,17 @@ export default async function Home() {
             </div>
           </div>
 
-          {topRatedRestaurants.length > 0 ? (
+          {top5Restaurants.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:max-h-[600px]">
               {/* Top 1 - Lớn bên trái */}
-              {topRatedRestaurants[0] && (
+              {top5Restaurants[0] && (
                 <div className="md:row-span-2 group relative bg-white rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300">
                   <div className="relative h-[300px] md:h-full md:aspect-video">
                     <Image
-                      src={topRatedRestaurants[0].featured_media_url || 'https://placehold.co/800x600?text=Top+1'}
-                      alt={topRatedRestaurants[0].title.rendered}
+                      src={top5Restaurants[0].featured_media_url || 'https://placehold.co/800x600?text=Top+1'}
+                      alt={top5Restaurants[0].title.rendered}
                       fill
-                      className={`object-cover group-hover:scale-105 transition-transform duration-500 ${(topRatedRestaurants[0] as any).is_closed ? 'opacity-50 grayscale' : ''}`}
+                      className={`object-cover group-hover:scale-105 transition-transform duration-500 ${(top5Restaurants[0] as any).is_closed ? 'opacity-50 grayscale' : ''}`}
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
 
@@ -82,7 +91,7 @@ export default async function Home() {
                     </div>
 
                     {/* Badge Đã Đóng Cửa */}
-                    {(topRatedRestaurants[0] as any).is_closed && (
+                    {(top5Restaurants[0] as any).is_closed && (
                       <div className="absolute top-4 right-4 bg-red-600 text-white px-4 py-2 rounded-full font-bold text-sm shadow-lg flex items-center gap-2">
                         ⛔ ĐÃ ĐÓNG CỬA
                       </div>
@@ -91,14 +100,14 @@ export default async function Home() {
                     {/* Info */}
                     <div className="absolute bottom-0 left-0 right-0 p-6 text-white">
                       <h3 className="text-2xl md:text-2xl font-extrabold mb-2 drop-shadow-lg">
-                        {topRatedRestaurants[0].title.rendered}
+                        {top5Restaurants[0].title.rendered}
                       </h3>
                       <p className="text-sm md:text-base text-white/90 mb-3 flex items-center gap-2">
-                        <span>📍</span> {topRatedRestaurants[0].address || 'Cần Giuộc'}
+                        <span>📍</span> {top5Restaurants[0].address || 'Cần Giuộc'}
                       </p>
                       <TrackableLink
-                        href={`/quan-an/${topRatedRestaurants[0].slug}`}
-                        restaurantId={topRatedRestaurants[0].id}
+                        href={`/quan-an/${top5Restaurants[0].slug}`}
+                        restaurantId={top5Restaurants[0].id}
                         className="inline-block bg-orange-500 hover:bg-orange-600 text-white px-6 py-3 rounded-full font-bold transition-all"
                       >
                         Xem chi tiết
@@ -110,7 +119,7 @@ export default async function Home() {
 
               {/* Top 2-5 - Lưới nhỏ bên phải */}
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-1 gap-4">
-                {topRatedRestaurants.slice(1, 5).map((restaurant, idx) => {
+                {top5Restaurants.slice(1, 5).map((restaurant, idx) => {
                   const rank = idx + 2;
                   const medalColors: Record<number, string> = {
                     2: 'from-gray-300 to-gray-500',
@@ -167,6 +176,9 @@ export default async function Home() {
           )}
         </div>
 
+        {/* Collection Carousel - NEW */}
+        <CollectionCarousel />
+
         {/* Quán Mới Phải Thử */}
         <div className="mb-20">
           <div className="flex items-center justify-between mb-8">
@@ -194,32 +206,8 @@ export default async function Home() {
           )}
         </div>
 
-        {/* Địa Điểm Nổi Bật */}
-        <div className="mb-20">
-          <div className="flex items-center justify-between mb-8">
-            <div>
-              <h3 className="text-2xl md:text-3xl font-bold text-gray-900 flex items-center gap-3">
-                ⭐ Địa điểm Nổi bật
-              </h3>
-              <p className="text-gray-500 text-sm mt-1">Khám phá những quán ăn được yêu thích nhất</p>
-            </div>
-
-            <Link href="/kham-pha" className="flex items-center gap-1 text-orange-500 font-bold hover:text-orange-600 hover:underline text-sm">
-              Xem tất cả
-              <span>→</span>
-            </Link>
-          </div>
-
-          {stickyRestaurants.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-              {stickyRestaurants.map((restaurant) => (
-                <RestaurantCard key={restaurant.id} data={restaurant} />
-              ))}
-            </div>
-          ) : (
-            <p className="text-center text-gray-400 py-10">Đang cập nhật dữ liệu...</p>
-          )}
-        </div>
+        {/* Blog Posts Grid - NEW */}
+        <BlogGrid posts={blogPosts} />
 
       </main>
     </div>
