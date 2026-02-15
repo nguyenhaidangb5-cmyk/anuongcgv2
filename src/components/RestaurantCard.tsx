@@ -53,6 +53,7 @@ export const RestaurantCard: React.FC<RestaurantCardProps> = ({ data }) => {
         : null;
 
     const imageUrl = data.featured_media_url || 'https://placehold.co/600x400?text=No+Image';
+    const isClosed = (data as any).is_closed === true;
 
     return (
         <Link
@@ -65,15 +66,29 @@ export const RestaurantCard: React.FC<RestaurantCardProps> = ({ data }) => {
                 <img
                     src={imageUrl}
                     alt={data.title.rendered}
-                    className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
+                    className={`absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out ${isClosed ? 'opacity-50 grayscale' : ''}`}
                     loading="lazy"
                 />
+
+                {/* Overlay xám khi đóng cửa */}
+                {isClosed && (
+                    <div className="absolute inset-0 bg-gray-900/30" />
+                )}
 
                 {/* Rating Badge */}
                 {averageRating && (
                     <div className="absolute bottom-1 right-1 md:top-3 md:right-3 md:bottom-auto bg-white/90 md:bg-orange-500 md:text-white text-orange-600 px-1.5 py-0.5 md:px-2 md:py-1 rounded md:rounded-lg font-bold text-[10px] md:text-xs shadow-sm flex items-center gap-1 backdrop-blur-sm">
                         <span>★</span>
                         <span>{averageRating}</span>
+                    </div>
+                )}
+
+                {/* Badge "ĐÃ ĐÓNG CỬA" */}
+                {isClosed && (
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-red-600 text-white px-3 py-1.5 md:px-4 md:py-2 rounded-full font-bold text-xs md:text-sm shadow-lg z-10 flex items-center gap-1.5">
+                        <span>⛔</span>
+                        <span className="hidden md:inline">ĐÃ ĐÓNG CỬA</span>
+                        <span className="md:hidden">ĐÓNG</span>
                     </div>
                 )}
             </div>

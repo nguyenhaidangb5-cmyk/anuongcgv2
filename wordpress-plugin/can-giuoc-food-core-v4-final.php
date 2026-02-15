@@ -2027,10 +2027,10 @@ class Can_Giuoc_Food_Core {
      * REST API endpoint để nhận báo cáo từ frontend
      */
     public function register_report_submission_endpoint() {
-        register_rest_route( 'cg/v1', '/submit-report', array(
+        register_rest_route( 'cg/v1', '/report', array(
             'methods'             => 'POST',
             'callback'            => array( $this, 'handle_report_submission' ),
-            'permission_callback' => '__return_true',
+            'permission_callback' => '__return_true', // Allow public access
             'args'                => array(
                 'restaurant_id' => array(
                     'required'          => true,
@@ -2120,31 +2120,42 @@ class Can_Giuoc_Food_Core {
             'post_status'  => 'publish',
         ));
         
+        // Kiểm tra lỗi khi tạo post
         if ( is_wp_error( $report_id ) ) {
             return new WP_REST_Response( array(
                 'success' => false,
-                'message' => 'Không thể tạo báo cáo. Vui lòng thử lại sau.'
+                'message' => 'Lỗi khi tạo báo cáo: ' . $report_id->get_error_message(),
+                'error_code' => 'create_post_failed'
             ), 500 );
         }
         
         // Lưu meta data
-        update_post_meta( $report_id, '_reported_restaurant_id', $restaurant_id );
+        update_post_meta( $report_id, '_restaurant_id', $restaurant_id );
         update_post_meta( $report_id, '_report_type', $report_type );
         update_post_meta( $report_id, '_reporter_name', $reporter_name );
         update_post_meta( $report_id, '_reporter_email', $reporter_email );
-        update_post_meta( $report_id, '_merge_status', 'pending' );
+        update_post_meta( $report_id, '_report_status', 'pending' );
         
         // Lưu suggested changes nếu có
         if ( $suggested_changes && is_array( $suggested_changes ) ) {
             update_post_meta( $report_id, '_suggested_changes', wp_json_encode( $suggested_changes ) );
         }
         
-        return new WP_REST_Response( array(
-            'success'   => true,
-            'message'   => 'Cảm ơn bạn đã gửi báo cáo! Chúng tôi sẽ xem xét trong thời gian sớm nhất.',
+        // Tạo response với CORS headers
+        $response = new WP_REST_Response( array(
+            'success' => true,
+            'message' => 'Cảm ơn bạn đã gửi báo cáo! Chúng tôi sẽ xem xét trong thời gian sớm nhất.',
             'report_id' => $report_id
-        ), 201 );
+        ), 200 );
+        
+        // Thêm CORS headers
+        $response->header( 'Access-Control-Allow-Origin', '*' );
+        $response->header( 'Access-Control-Allow-Methods', 'POST, OPTIONS' );
+        $response->header( 'Access-Control-Allow-Headers', 'Content-Type' );
+        
+        return $response;
     }
 }
 
+// Khởi tạo plugin
 new Can_Giuoc_Food_Core();
