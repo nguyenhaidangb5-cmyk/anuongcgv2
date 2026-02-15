@@ -1757,13 +1757,15 @@ class Can_Giuoc_Food_Core {
     public function render_report_processing_meta_box( $post ) {
         wp_nonce_field( 'report_processing_nonce', 'report_processing_nonce_field' );
         
-        $restaurant_id = get_post_meta( $post->ID, '_reported_restaurant_id', true );
+        // FIX: Sử dụng đúng meta keys
+        $restaurant_id = get_post_meta( $post->ID, '_restaurant_id', true );
         $report_type = get_post_meta( $post->ID, '_report_type', true );
+        $message = get_post_meta( $post->ID, '_message', true );
         $suggested_changes = get_post_meta( $post->ID, '_suggested_changes', true );
-        $merge_status = get_post_meta( $post->ID, '_merge_status', true );
+        $report_status = get_post_meta( $post->ID, '_report_status', true );
         
         if ( ! $restaurant_id ) {
-            echo '<p style="color: #999;">Chưa có thông tin quán ăn được báo cáo.</p>';
+            echo '<p style="color: #999;">⚠️ Chưa có thông tin quán ăn được báo cáo.</p>';
             return;
         }
         
@@ -1781,7 +1783,7 @@ class Can_Giuoc_Food_Core {
         }
         
         // Display status
-        if ( $merge_status === 'approved' ) {
+        if ( $report_status === 'completed' ) {
             echo '<div style="background: #d1e7dd; border-left: 4px solid #0f5132; padding: 12px; margin-bottom: 20px;">';
             echo '<strong style="color: #0f5132;">✅ Đã xử lý và cập nhật</strong>';
             echo '</div>';
@@ -1790,27 +1792,43 @@ class Can_Giuoc_Food_Core {
         ?>
         <style>
             .comparison-table { width: 100%; border-collapse: collapse; margin: 20px 0; }
-            .comparison-table th { background: #f0f0f1; padding: 12px; text-align: left; font-weight: 600; }
-            .comparison-table td { padding: 12px; border-bottom: 1px solid #ddd; vertical-align: top; }
+            .comparison-table th { background: #f0f0f1; padding: 12px; text-align: left; font-weight: 600; border: 1px solid #ddd; }
+            .comparison-table td { padding: 12px; border: 1px solid #ddd; vertical-align: top; }
             .comparison-table tr:hover { background: #f9f9f9; }
             .current-value { color: #666; }
             .suggested-value { color: #2271b1; font-weight: 600; }
             .changed-row { background: #fff3cd; }
-            .merge-button { background: #00a32a; color: white; border: none; padding: 12px 24px; font-size: 14px; font-weight: 600; border-radius: 4px; cursor: pointer; }
+            .closed-highlight { background: #f8d7da; color: #721c24; }
+            .merge-button { background: #00a32a; color: white; border: none; padding: 12px 24px; font-size: 14px; font-weight: 600; border-radius: 4px; cursor: pointer; margin-top: 20px; }
             .merge-button:hover { background: #008a20; }
             .merge-button:disabled { background: #ddd; cursor: not-allowed; }
+            .report-header { background: #f0f6fc; padding: 15px; border-radius: 4px; margin-bottom: 20px; }
         </style>
         
-        <h3>📊 So sánh dữ liệu</h3>
-        <p><strong>Quán:</strong> <a href="<?php echo get_edit_post_link( $restaurant_id ); ?>" target="_blank"><?php echo esc_html( $restaurant->post_title ); ?></a></p>
-        <p><strong>Loại báo cáo:</strong> <?php echo esc_html( $report_type ?: 'Không xác định' ); ?></p>
+        <div class="report-header">
+            <h3 style="margin: 0 0 10px 0;">📊 So sánh dữ liệu</h3>
+            <p style="margin: 5px 0;"><strong>Quán:</strong> <a href="<?php echo get_edit_post_link( $restaurant_id ); ?>" target="_blank"><?php echo esc_html( $restaurant->post_title ); ?></a></p>
+            <p style="margin: 5px 0;"><strong>Loại báo cáo:</strong> 
+                <?php 
+                $type_labels = array(
+                    'closed' => '⛔ Quán đã đóng cửa',
+                    'wrong_info' => '📝 Thông tin sai',
+                    'other' => '📌 Khác'
+                );
+                echo isset( $type_labels[$report_type] ) ? $type_labels[$report_type] : esc_html( $report_type );
+                ?>
+            </p>
+            <?php if ( $message ): ?>
+            <p style="margin: 5px 0;"><strong>Nội dung báo cáo:</strong> <em>"<?php echo esc_html( $message ); ?>"</em></p>
+            <?php endif; ?>
+        </div>
         
         <table class="comparison-table">
             <thead>
                 <tr>
                     <th style="width: 30%;">Trường dữ liệu</th>
-                    <th style="width: 35%;">Hiện tại</th>
-                    <th style="width: 35%;">Đề xuất thay đổi</th>
+                    <th style="width: 35%;">Dữ liệu hiện tại</th>
+                    <th style="width: 35%;">Báo cáo từ khách</th>
                 </tr>
             </thead>
             <tbody>
@@ -1818,8 +1836,8 @@ class Can_Giuoc_Food_Core {
                 // Special handling for "closed" status
                 if ( $report_type === 'closed' ) {
                     $is_closed = get_post_meta( $restaurant_id, '_is_closed', true );
-                    echo '<tr class="changed-row">';
-                    echo '<td><strong>Trạng thái</strong></td>';
+                    echo '<tr class="closed-highlight">';
+                    echo '<td><strong>⚠️ Trạng thái</strong></td>';
                     echo '<td class="current-value">' . ( $is_closed ? '⛔ Đã đóng cửa' : '✅ Đang hoạt động' ) . '</td>';
                     echo '<td class="suggested-value">⛔ Đã đóng cửa</td>';
                     echo '</tr>';
@@ -1857,12 +1875,13 @@ class Can_Giuoc_Food_Core {
             </tbody>
         </table>
         
-        <?php if ( $merge_status !== 'approved' ) : ?>
-            <button type="button" class="merge-button" onclick="approveAndMerge(<?php echo $post->ID; ?>)">
-                ✅ CHẤP THUẬN & CẬP NHẬT
-            </button>
-            <span id="merge-status" style="margin-left: 12px; font-weight: 600;"></span>
+        <?php if ( $report_status !== 'completed' ): ?>
+        <button type="button" class="merge-button" id="approve-merge-btn" data-report-id="<?php echo $post->ID; ?>" data-restaurant-id="<?php echo $restaurant_id; ?>">
+            ✔️ DUYỆT BÁO CÁO & CẬP NHẬT
+        </button>
+        <span id="merge-status" style="margin-left: 15px; font-weight: 600;"></span>
         <?php endif; ?>
+        
         <?php
     }
     
@@ -1870,7 +1889,8 @@ class Can_Giuoc_Food_Core {
      * Render report details meta box
      */
     public function render_report_details_meta_box( $post ) {
-        $restaurant_id = get_post_meta( $post->ID, '_reported_restaurant_id', true );
+        // FIX: Sử dụng đúng meta key
+        $restaurant_id = get_post_meta( $post->ID, '_restaurant_id', true );
         $report_type = get_post_meta( $post->ID, '_report_type', true );
         $reporter_name = get_post_meta( $post->ID, '_reporter_name', true );
         $reporter_email = get_post_meta( $post->ID, '_reporter_email', true );
@@ -1921,7 +1941,8 @@ class Can_Giuoc_Food_Core {
             return;
         }
         
-        update_post_meta( $post_id, '_reported_restaurant_id', intval( $_POST['reported_restaurant_id'] ) );
+        // FIX: Lưu đúng meta key
+        update_post_meta( $post_id, '_restaurant_id', intval( $_POST['reported_restaurant_id'] ) );
         update_post_meta( $post_id, '_report_type', sanitize_text_field( $_POST['report_type'] ) );
         update_post_meta( $post_id, '_reporter_name', sanitize_text_field( $_POST['reporter_name'] ) );
         update_post_meta( $post_id, '_reporter_email', sanitize_email( $_POST['reporter_email'] ) );
@@ -1939,12 +1960,20 @@ class Can_Giuoc_Food_Core {
         }
         
         $report_id = intval( $_POST['report_id'] );
-        $restaurant_id = get_post_meta( $report_id, '_reported_restaurant_id', true );
+        
+        // FIX: Sử dụng đúng meta keys
+        $restaurant_id = get_post_meta( $report_id, '_restaurant_id', true );
         $report_type = get_post_meta( $report_id, '_report_type', true );
         $suggested_changes = get_post_meta( $report_id, '_suggested_changes', true );
+        $report_status = get_post_meta( $report_id, '_report_status', true );
         
         if ( ! $restaurant_id ) {
             wp_send_json_error( array( 'message' => 'Không tìm thấy quán ăn' ) );
+        }
+        
+        // Check if already processed
+        if ( $report_status === 'completed' ) {
+            wp_send_json_error( array( 'message' => 'Báo cáo đã được xử lý rồi' ) );
         }
         
         // Handle "closed" status
@@ -1961,8 +1990,8 @@ class Can_Giuoc_Food_Core {
             }
         }
         
-        // Update report status
-        update_post_meta( $report_id, '_merge_status', 'approved' );
+        // Update report status to completed
+        update_post_meta( $report_id, '_report_status', 'completed' );
         wp_update_post( array(
             'ID' => $report_id,
             'post_status' => 'completed'
@@ -1982,50 +2011,54 @@ class Can_Giuoc_Food_Core {
         if ( $screen && $screen->post_type === 'bao_cao' ) {
             ?>
             <script>
-            function approveAndMerge(reportId) {
+            // Updated AJAX handler for approve and merge button
+        jQuery(document).ready(function($) {
+            $('#approve-merge-btn').on('click', function() {
                 if (!confirm('Xác nhận cập nhật thông tin quán ăn theo báo cáo này?')) {
                     return;
                 }
                 
-                const button = event.target;
-                const statusEl = document.getElementById('merge-status');
+                const button = $(this);
+                const reportId = button.data('report-id');
+                const statusEl = $('#merge-status');
                 
-                button.disabled = true;
-                button.textContent = '⏳ Đang xử lý...';
-                statusEl.textContent = '';
+                button.prop('disabled', true);
+                button.text('⏳ Đang xử lý...');
+                statusEl.html('');
                 
-                jQuery.ajax({
+                $.ajax({
                     url: ajaxurl,
                     type: 'POST',
                     data: {
                         action: 'approve_and_merge',
                         report_id: reportId,
-                        nonce: jQuery('#report_processing_nonce_field').val()
-                    },
-                    success: function(response) {
+                        nonce: $('#report_processing_nonce_field').val()
+                    },    },
+                        success: function(response) {
                         if (response.success) {
-                            statusEl.innerHTML = '<span style="color: #00a32a;">✅ ' + response.data.message + '</span>';
+                            statusEl.html('<span style="color: #00a32a;">✅ ' + response.data.message + '</span>');
                             setTimeout(function() {
                                 location.reload();
                             }, 1500);
                         } else {
-                            statusEl.innerHTML = '<span style="color: #d63638;">❌ ' + response.data.message + '</span>';
-                            button.disabled = false;
-                            button.textContent = '✅ CHẤP THUẬN & CẬP NHẬT';
+                            statusEl.html('<span style="color: #d63638;">❌ ' + response.data.message + '</span>');
+                            button.prop('disabled', false);
+                            button.text('✔️ DUYỆT BÁO CÁO & CẬP NHẬT');
                         }
                     },
                     error: function() {
-                        statusEl.innerHTML = '<span style="color: #d63638;">❌ Lỗi kết nối</span>';
-                        button.disabled = false;
-                        button.textContent = '✅ CHẤP THUẬN & CẬP NHẬT';
+                        statusEl.html('<span style="color: #d63638;">❌ Lỗi kết nối</span>');
+                        button.prop('disabled', false);
+                        button.text('✔️ DUYỆT BÁO CÁO & CẬP NHẬT');
                     }
                 });
-            }
+            });
+        });    }
             </script>
             <?php
         }
     }
-
+    
     /**
      * REST API endpoint để nhận báo cáo từ frontend
      */
