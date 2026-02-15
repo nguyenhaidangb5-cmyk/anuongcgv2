@@ -1463,8 +1463,30 @@ class Can_Giuoc_Food_Core {
         $end_date = get_post_meta( $post->ID, '_top_end_date', true );
         $click_count = get_post_meta( $post->ID, '_ads_click_count', true ) ?: 0;
         $is_closed = get_post_meta( $post->ID, '_is_closed', true );
+        $is_manual_top_5 = get_post_meta( $post->ID, '_is_manual_top_5', true );
+        $manual_top_5_order = get_post_meta( $post->ID, '_manual_top_5_order', true );
         ?>
         <div class="top5-scheduling-box">
+            <!-- GHIM THỦ CÔNG TOP 5 -->
+            <div style="background: #fff3cd; border-left: 4px solid #ffc107; padding: 12px; margin-bottom: 15px;">
+                <p style="margin: 0 0 10px 0;">
+                    <label>
+                        <input type="checkbox" name="is_manual_top_5" value="1" <?php checked( $is_manual_top_5, '1' ); ?> />
+                        <strong>⭐ Ghim Top 5 Thủ Công</strong>
+                    </label><br>
+                    <span class="description">Ưu tiên tuyệt đối hiển thị trong Top 5 Yêu Thích</span>
+                </p>
+                
+                <p style="margin: 0;">
+                    <label for="manual_top_5_order"><strong>🔢 Số thứ tự ưu tiên:</strong></label><br>
+                    <input type="number" id="manual_top_5_order" name="manual_top_5_order" value="<?php echo esc_attr( $manual_top_5_order ); ?>" min="1" max="5" style="width: 100px;" placeholder="1-5" />
+                    <span class="description">(1 = Cao nhất, 5 = Thấp nhất)</span>
+                </p>
+            </div>
+            
+            <hr>
+            
+            <!-- LỊCH HIỂN THỊ (Schedule) -->
             <p>
                 <label for="top_start_date"><strong>📅 Ngày bắt đầu:</strong></label><br>
                 <input type="date" id="top_start_date" name="top_start_date" value="<?php echo esc_attr( $start_date ); ?>" style="width: 100%;" />
@@ -1506,6 +1528,14 @@ class Can_Giuoc_Food_Core {
         
         if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) return;
         if ( ! current_user_can( 'edit_post', $post_id ) ) return;
+        
+        // Save manual Top 5 fields
+        $is_manual_top_5 = isset( $_POST['is_manual_top_5'] ) ? '1' : '0';
+        update_post_meta( $post_id, '_is_manual_top_5', $is_manual_top_5 );
+        
+        if ( isset( $_POST['manual_top_5_order'] ) ) {
+            update_post_meta( $post_id, '_manual_top_5_order', intval( $_POST['manual_top_5_order'] ) );
+        }
         
         // Save dates
         if ( isset( $_POST['top_start_date'] ) ) {
@@ -1631,6 +1661,28 @@ class Can_Giuoc_Food_Core {
             },
             'schema' => array(
                 'description' => 'Number of clicks on Top 5 ads',
+                'type'        => 'integer',
+            ),
+        ));
+        
+        // is_manual_top_5 field
+        register_rest_field( 'quan_an', 'is_manual_top_5', array(
+            'get_callback' => function( $post ) {
+                return get_post_meta( $post['id'], '_is_manual_top_5', true ) === '1';
+            },
+            'schema' => array(
+                'description' => 'Whether restaurant is manually pinned to Top 5',
+                'type'        => 'boolean',
+            ),
+        ));
+        
+        // manual_top_5_order field
+        register_rest_field( 'quan_an', 'manual_top_5_order', array(
+            'get_callback' => function( $post ) {
+                return intval( get_post_meta( $post['id'], '_manual_top_5_order', true ) ?: 999 );
+            },
+            'schema' => array(
+                'description' => 'Manual Top 5 priority order (1-5, lower is higher priority)',
                 'type'        => 'integer',
             ),
         ));

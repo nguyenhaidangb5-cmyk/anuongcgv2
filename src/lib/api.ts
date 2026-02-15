@@ -188,7 +188,10 @@ function shuffleArray<T>(array: T[]): T[] {
 }
 
 /**
- * Fetch quán top rated (có rating >= 4.5, sau đó shuffle ngẫu nhiên)
+ * Fetch quán top rated với ưu tiên manual Top 5
+ * Logic: 
+ * 1. Lấy quán có is_manual_top_5 = true, sort theo manual_top_5_order ASC
+ * 2. Nếu chưa đủ 5, lấy tiếp quán có rating >= 4.5
  */
 export async function fetchTopRatedRestaurants(limit: number = 5): Promise<Restaurant[]> {
     // Lấy nhiều quán để có đủ dữ liệu
@@ -196,8 +199,25 @@ export async function fetchTopRatedRestaurants(limit: number = 5): Promise<Resta
         per_page: 200
     });
 
-    // Tính rating trung bình và lọc >= 4.5
+    // 1. Lấy quán được ghim thủ công (is_manual_top_5 = true)
+    const manualTop5 = restaurants
+        .filter((r: any) => r.is_manual_top_5 === true)
+        .sort((a: any, b: any) => {
+            const orderA = a.manual_top_5_order || 999;
+            const orderB = b.manual_top_5_order || 999;
+            return orderA - orderB; // ASC: 1, 2, 3, 4, 5
+        });
+
+    // 2. Nếu đã đủ limit, return luôn
+    if (manualTop5.length >= limit) {
+        return manualTop5.slice(0, limit);
+    }
+
+    // 3. Nếu chưa đủ, lấy thêm quán có rating cao
+    const manualIds = new Set(manualTop5.map(r => r.id));
+
     const highRatedRestaurants = restaurants
+        .filter(r => !manualIds.has(r.id)) // Loại bỏ quán đã có trong manual
         .map(r => {
             const ratings = [
                 Number(r.rating_food || 0),
@@ -212,11 +232,12 @@ export async function fetchTopRatedRestaurants(limit: number = 5): Promise<Resta
 
             return { ...r, avgRating };
         })
-        .filter(r => r.avgRating >= 4.5); // Chỉ lấy quán có rating >= 4.5
+        .filter(r => r.avgRating >= 4.5) // Chỉ lấy quán có rating >= 4.5
+        .sort((a: any, b: any) => b.avgRating - a.avgRating); // Sort DESC by rating
 
-    // Shuffle danh sách và lấy số lượng cần thiết
-    const shuffled = shuffleArray(highRatedRestaurants);
-    return shuffled.slice(0, limit);
+    // 4. Kết hợp: Manual Top 5 + High Rated
+    const combined = [...manualTop5, ...highRatedRestaurants];
+    return combined.slice(0, limit);
 }
 
 /**

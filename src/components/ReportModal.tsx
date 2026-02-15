@@ -25,7 +25,7 @@ export function ReportModal({ restaurantId, restaurantName, isOpen, onClose }: R
         setSubmitStatus('idle');
 
         try {
-            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/cg/v1/submit-report`, {
+            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/wp-json/cg/v1/report`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
