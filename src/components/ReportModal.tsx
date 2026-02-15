@@ -24,8 +24,20 @@ export function ReportModal({ restaurantId, restaurantName, isOpen, onClose }: R
         setIsSubmitting(true);
         setSubmitStatus('idle');
 
+        // HARDCODE WordPress API URL để tránh undefined
+        const WP_API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://admin.anuongcangiuoc.org';
+
         try {
-            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/wp-json/cg/v1/report`, {
+            console.log('🔵 Gửi báo cáo với data:', {
+                restaurant_id: restaurantId,
+                report_type: reportType,
+                reporter_name: reporterName,
+                reporter_email: reporterEmail,
+                message: message,
+            });
+            console.log('🔵 API URL:', WP_API_URL);
+
+            const response = await fetch(`${WP_API_URL}/wp-json/cg/v1/report`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -39,9 +51,14 @@ export function ReportModal({ restaurantId, restaurantName, isOpen, onClose }: R
                 }),
             });
 
-            const data = await response.json();
+            console.log('🔵 Response status:', response.status);
+            console.log('🔵 Response headers:', response.headers);
 
-            if (data.success) {
+            const data = await response.json();
+            console.log('🔵 Response data:', data);
+
+            if (response.ok && data.success) {
+                console.log('✅ Gửi báo cáo thành công!');
                 setSubmitStatus('success');
                 // Reset form sau 2 giây
                 setTimeout(() => {
@@ -52,10 +69,11 @@ export function ReportModal({ restaurantId, restaurantName, isOpen, onClose }: R
                     onClose();
                 }, 2000);
             } else {
+                console.error('❌ API trả về lỗi:', data);
                 setSubmitStatus('error');
             }
         } catch (error) {
-            console.error('Lỗi khi gửi báo cáo:', error);
+            console.error('❌ Lỗi khi gửi báo cáo:', error);
             setSubmitStatus('error');
         } finally {
             setIsSubmitting(false);

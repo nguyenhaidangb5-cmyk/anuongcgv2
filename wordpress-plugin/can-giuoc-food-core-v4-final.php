@@ -46,6 +46,9 @@ class Can_Giuoc_Food_Core {
         add_action( 'wp_ajax_approve_and_merge', array( $this, 'handle_approve_and_merge' ) );
         add_action( 'admin_footer', array( $this, 'enqueue_report_processing_script' ) );
         add_action( 'rest_api_init', array( $this, 'register_report_submission_endpoint' ) );
+        
+        // --- 12. CORS SUPPORT FOR FRONTEND ---
+        add_filter( 'rest_pre_serve_request', array( $this, 'add_cors_headers' ), 10, 4 );
     }
 
     /**
@@ -2028,7 +2031,7 @@ class Can_Giuoc_Food_Core {
      */
     public function register_report_submission_endpoint() {
         register_rest_route( 'cg/v1', '/report', array(
-            'methods'             => 'POST',
+            'methods'             => array('POST', 'OPTIONS'), // Thêm OPTIONS cho CORS preflight
             'callback'            => array( $this, 'handle_report_submission' ),
             'permission_callback' => '__return_true', // Allow public access
             'args'                => array(
@@ -2071,6 +2074,11 @@ class Can_Giuoc_Food_Core {
      * Xử lý báo cáo được gửi từ frontend
      */
     public function handle_report_submission( $request ) {
+        // CORS Headers - Cho phép gọi từ frontend
+        header( 'Access-Control-Allow-Origin: *' );
+        header( 'Access-Control-Allow-Methods: POST, OPTIONS' );
+        header( 'Access-Control-Allow-Headers: Content-Type' );
+        
         $restaurant_id = $request->get_param( 'restaurant_id' );
         $report_type = $request->get_param( 'report_type' );
         $reporter_name = $request->get_param( 'reporter_name' );
@@ -2154,6 +2162,21 @@ class Can_Giuoc_Food_Core {
         $response->header( 'Access-Control-Allow-Headers', 'Content-Type' );
         
         return $response;
+    }
+    
+    /**
+     * Add CORS headers to all REST API responses
+     */
+    public function add_cors_headers( $served, $result, $request, $server ) {
+        // Only add CORS headers for our custom endpoints
+        if ( strpos( $request->get_route(), '/cg/v1/' ) !== false ) {
+            header( 'Access-Control-Allow-Origin: *' );
+            header( 'Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS' );
+            header( 'Access-Control-Allow-Headers: Content-Type, Authorization' );
+            header( 'Access-Control-Allow-Credentials: true' );
+        }
+        
+        return $served;
     }
 }
 

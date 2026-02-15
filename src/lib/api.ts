@@ -62,9 +62,9 @@ export async function fetchRestaurantsWithPagination(params: FetchRestaurantsPar
         // Sort by average rating (client-side after fetch)
         queryParams.append('orderby', 'date');
     } else if (orderby === 'view_count') {
-        // Sort by view count meta field
+        // Sort by ads click count meta field
         queryParams.append('orderby', 'meta_value_num');
-        queryParams.append('meta_key', 'post_views_count');
+        queryParams.append('meta_key', '_ads_click_count');
     } else if (orderby) {
         queryParams.append('orderby', orderby);
     }
