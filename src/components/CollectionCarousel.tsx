@@ -18,26 +18,26 @@ const collections: Collection[] = [
         emoji: '🍜'
     },
     {
-        title: 'Ăn Vặt < 20k',
-        href: '/kham-pha?price_range=cheap',
+        title: 'Vỉa Hè < 30k',
+        href: '/kham-pha?price_range=under-30k',
         image: 'https://images.unsplash.com/photo-1601050690597-df0568f70950?w=600&h=400&fit=crop',
         emoji: '🍢'
     },
     {
         title: 'Cafe View Đẹp',
-        href: '/kham-pha?food_type=tra-sua-cafe',
+        href: '/kham-pha?category=tra-sua-cafe',
         image: 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=600&h=400&fit=crop',
         emoji: '☕'
     },
     {
         title: 'Nhậu Lai Rai',
-        href: '/kham-pha?food_type=quan-nhau',
+        href: '/kham-pha?category=quan-nhau',
         image: 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=600&h=400&fit=crop',
         emoji: '🍻'
     },
     {
         title: 'Món Chay',
-        href: '/kham-pha?food_type=mon-chay',
+        href: '/kham-pha?category=mon-chay',
         image: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=600&h=400&fit=crop',
         emoji: '🥗'
     }
@@ -54,8 +54,8 @@ export function CollectionCarousel() {
             </div>
 
             {/* Horizontal Scroll Container */}
-            <div className="relative">
-                <div className="flex overflow-x-auto gap-4 pb-4 snap-x snap-mandatory scrollbar-hide">
+            <div className="relative px-4 md:px-0">
+                <div className="flex overflow-x-auto gap-4 pb-4 snap-x snap-mandatory scrollbar-hide pr-4 md:pr-0">
                     {collections.map((collection, index) => (
                         <Link
                             key={index}
