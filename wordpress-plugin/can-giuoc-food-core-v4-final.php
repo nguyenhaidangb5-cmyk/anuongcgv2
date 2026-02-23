@@ -174,6 +174,8 @@ class Can_Giuoc_Food_Core
 
     private function create_default_terms()
     {
+        /*
+        // Tạm thời comment block tự động thêm để các danh mục bóng ma không bị tạo lại
         if (!term_exists('Cơm/Món nước', 'food_type')) {
             $food_types = array(
                 'Cơm/Món nước',
@@ -190,6 +192,7 @@ class Can_Giuoc_Food_Core
                 wp_insert_term($term, 'food_type');
             }
         }
+        */
 
         if (taxonomy_exists('khu_vuc')) {
             $new_locations = array(
@@ -591,8 +594,8 @@ class Can_Giuoc_Food_Core
                     </div>
                     <div class="cg-rating-field">
                         <label class="cg-label">🏪 Không gian:</label>
-                        <input type="number" name="cg_rating_ambiance" value="<?php echo esc_attr($rating_ambiance); ?>"
-                            min="0" max="10" step="0.5" />
+                        <input type="number" name="cg_rating_ambiance" value="<?php echo esc_attr($rating_ambiance); ?>" min="0"
+                            max="10" step="0.5" />
                     </div>
                 </div>
             </div>
@@ -2737,3 +2740,25 @@ class Can_Giuoc_Food_Core
 
 // Khởi tạo plugin
 new Can_Giuoc_Food_Core();
+
+/**
+ * XÓA ÉP BUỘC (FORCE DELETE) DANH MỤC BÓNG MA
+ * URL thực thi: ?force_delete_ghost_terms=true
+ */
+add_action('init', function () {
+    if (isset($_GET['force_delete_ghost_terms']) && $_GET['force_delete_ghost_terms'] == 'true') {
+        $ghost_terms = ['bun', 'com-mon-nuoc', 'hai-san', 'pho'];
+        $deleted_count = 0;
+
+        foreach ($ghost_terms as $slug) {
+            $term = get_term_by('slug', $slug, 'food_type');
+            if ($term) {
+                wp_delete_term($term->term_id, 'food_type');
+                $deleted_count++;
+            }
+        }
+
+        echo "Đã tiêu diệt $deleted_count danh mục bóng ma thành công!";
+        die();
+    }
+});
