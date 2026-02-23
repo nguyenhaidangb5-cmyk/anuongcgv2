@@ -331,6 +331,7 @@ class Can_Giuoc_Food_Core
         $hours = get_post_meta($post->ID, '_cg_hours', true);
         $price_range = get_post_meta($post->ID, '_cg_price_range', true);
         $map_link = get_post_meta($post->ID, '_cg_map_link', true);
+        $zalo_phone = get_post_meta($post->ID, '_cg_zalo_phone', true);
 
         // Boolean fields (Tiện ích)
         $has_ac = get_post_meta($post->ID, '_cg_has_ac', true);
@@ -512,6 +513,13 @@ class Can_Giuoc_Food_Core
                     <label class="cg-label">Link Google Maps:</label>
                     <input type="text" name="cg_map_link" value="<?php echo esc_attr($map_link); ?>" class="cg-input"
                         placeholder="https://maps.google.com/..." />
+                </div>
+                <div class="cg-field">
+                    <label class="cg-label">📱 Số Zalo (để mở link zalo.me):</label>
+                    <input type="text" name="cg_zalo_phone" value="<?php echo esc_attr($zalo_phone); ?>" class="cg-input"
+                        placeholder="VD: 0901234567" />
+                    <small style="color:#888;">Nhập số điện thoại đã đăng ký Zalo. Nút 'Chat Zalo' sẽ xuất hiện trên trang chi
+                        tiết.</small>
                 </div>
             </div>
 
@@ -799,7 +807,7 @@ class Can_Giuoc_Food_Core
             return;
 
         // Text fields
-        $text_fields = array('cg_phone', 'cg_address', 'cg_hours', 'cg_map_link', 'cg_rating_food', 'cg_rating_price', 'cg_rating_service', 'cg_rating_ambiance');
+        $text_fields = array('cg_phone', 'cg_address', 'cg_hours', 'cg_map_link', 'cg_zalo_phone', 'cg_rating_food', 'cg_rating_price', 'cg_rating_service', 'cg_rating_ambiance');
         foreach ($text_fields as $field) {
             if (isset($_POST[$field])) {
                 update_post_meta($post_id, '_' . $field, sanitize_text_field($_POST[$field]));
@@ -847,12 +855,8 @@ class Can_Giuoc_Food_Core
             update_post_meta($post_id, '_cg_gallery_images', $gallery_images);
         }
 
-        // --- XỬ LÝ STICKY POST ---
-        if (isset($_POST['sticky'])) {
-            stick_post($post_id);
-        } else {
-            unstick_post($post_id);
-        }
+        // --- GHI CHÚ: Đã xóa sticky/ghim post logic ---
+        // Tính năng sticky đã bị vô hiệu hóa vì gây xung đột với sort order.
     }
 
     /**
@@ -2762,3 +2766,112 @@ add_action('init', function () {
         die();
     }
 });
+
+/**
+ * TỰ ĐỘNG TẠO TAXONOMY "Ăn Sáng" (slug: an-sang) nếu chưa tồn tại
+ * Chạy sau khi taxonomy food_type đã được đăng ký (priority 20)
+ */
+add_action('init', function () {
+    if (!taxonomy_exists('food_type')) return;
+    if (!term_exists('an-sang', 'food_type')) {
+        wp_insert_term('Ăn Sáng', 'food_type', array(
+            'slug' => 'an-sang',
+            'description' => 'Món ăn sáng, điểm tâm sáng'
+        ));
+    }
+}, 20);
+
+/**
+ * XÓA METABOX "Ghim bài viết" khỏi trang quản trị quán ăn
+ * Tính năng sticky đã bị vô hiệu hóa vì gây xung đột sort order
+ */
+add_action('admin_menu', function () {
+    remove_meta_box('sticky', 'quan_an', 'side');
+    remove_meta_box('postimagediv', 'quan_an', 'side'); // Không xóa ảnh đại diện, chỉ xóa sticky
+    remove_meta_box('sticky', 'quan_an', 'side');
+});
+
+// Xóa metabox "Ghim bài viết" trên post cũng nếu cần
+add_action('add_meta_boxes', function () {
+    remove_meta_box('sticky_meta_box', 'quan_an', 'side');
+    // Nếu plugin đăng ký metabox "Ghim" riêng, xóa theo ID của nó
+    remove_meta_box('ghim_bai_viet_meta_box', 'quan_an', 'side');
+    remove_meta_box('is_sticky_meta_box', 'quan_an', 'side');
+}, 99);
+
+/**
+ * PHẦN 2: FIX SEARCH - Tăng cường tìm kiếm UTF-8 tiếng Việt
+ * Hook vào REST API query để mở rộng tìm kiếm vào ACF fields + meta
+ */
+add_filter('rest_quan_an_query', function ($args, $request) {
+    $search = $request->get_param('search');
+    if (empty($search)) return $args;
+
+    // Decode nếu frontend đã encodeURIComponent
+    $search = urldecode($search);
+    $search = sanitize_text_field($search);
+
+    // Lưu keyword để dùng trong posts_where
+    $args['_cg_search_keyword'] = $search;
+
+    // Xóa 's' mặc định để chúng ta tự handle qua posts_where
+    unset($args['s']);
+
+    return $args;
+}, 10, 2);
+
+/**
+ * Tùy chỉnh WHERE clause để search UTF-8 + trong meta fields
+ * Dùng LIKE với BINARY để tránh case-sensitivity issues với tiếng Việt
+ */
+add_filter('posts_where', function ($where, $query) {
+    global $wpdb;
+
+    // Chỉ áp dụng cho REST API requests của quan_an
+    if (!isset($query->query_vars['_cg_search_keyword'])) return $where;
+    if (!defined('REST_REQUEST') || !REST_REQUEST) return $where;
+
+    $keyword = $query->query_vars['_cg_search_keyword'];
+    if (empty($keyword)) return $where;
+
+    // Escape và tạo LIKE pattern
+    $like = '%' . $wpdb->esc_like($keyword) . '%';
+
+    // Tìm trong title + content + meta (address, hours)
+    $where .= $wpdb->prepare(
+        " AND (
+            {$wpdb->posts}.post_title LIKE %s COLLATE utf8mb4_unicode_ci
+            OR {$wpdb->posts}.post_content LIKE %s COLLATE utf8mb4_unicode_ci
+            OR EXISTS (
+                SELECT 1 FROM {$wpdb->postmeta} pm
+                WHERE pm.post_id = {$wpdb->posts}.ID
+                AND pm.meta_key IN ('_cg_address', '_cg_hours', '_cg_phone')
+                AND pm.meta_value LIKE %s COLLATE utf8mb4_unicode_ci
+            )
+        )",
+        $like,
+        $like,
+        $like
+    );
+
+    return $where;
+}, 10, 2);
+
+/**
+ * PHẦN 3: SORT FIX - Expose average_rating field cho REST API sort
+ * Tính toán và lưu _cg_average_rating mỗi khi post được lưu
+ */
+add_action('save_post_quan_an', function ($post_id) {
+    if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) return;
+
+    $food    = (float) get_post_meta($post_id, '_cg_rating_food', true);
+    $price   = (float) get_post_meta($post_id, '_cg_rating_price', true);
+    $service = (float) get_post_meta($post_id, '_cg_rating_service', true);
+    $ambiance = (float) get_post_meta($post_id, '_cg_rating_ambiance', true);
+
+    // Tính trung bình, chỉ tính các field khác 0
+    $values = array_filter([$food, $price, $service, $ambiance], fn($v) => $v > 0);
+    $avg = count($values) > 0 ? array_sum($values) / count($values) : 0;
+
+    update_post_meta($post_id, '_cg_average_rating', round($avg, 2));
+}, 20);

@@ -55,14 +55,18 @@ export async function fetchRestaurantsWithPagination(params: FetchRestaurantsPar
         _embed: '1', // Để lấy featured image
     });
 
-    if (search) queryParams.append('search', search);
+    // Encode search keyword để xử lý đúng UTF-8 tiếng Việt
+    if (search && search.trim()) {
+        queryParams.append('search', encodeURIComponent(search.trim()));
+    }
 
     // Handle different orderby options
     if (orderby === 'rating') {
-        // Sort by average rating (client-side after fetch)
-        queryParams.append('orderby', 'date');
+        // Sort by average_rating meta field (server-side), fallback client-side
+        queryParams.append('orderby', 'meta_value_num');
+        queryParams.append('meta_key', '_cg_average_rating');
     } else if (orderby === 'view_count') {
-        // Sort by ads click count meta field
+        // Sort by view count (ads click), fallback to comment_count nếu không có
         queryParams.append('orderby', 'meta_value_num');
         queryParams.append('meta_key', '_ads_click_count');
     } else if (orderby) {

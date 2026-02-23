@@ -224,13 +224,15 @@ export default function RestaurantDetailPage() {
                             </div>
                         )}
 
-                        {/* Menu Images Section */}
+                        {/* Menu Images Section - ẨN TRÊN MOBILE, chỉ hiện desktop */}
                         {data.menu_images && data.menu_images.length > 0 && (
-                            <ImageGallery
-                                images={data.menu_images}
-                                title="Thực Đơn"
-                                icon="📋"
-                            />
+                            <div className="hidden md:block">
+                                <ImageGallery
+                                    images={data.menu_images}
+                                    title="Thực Đơn"
+                                    icon="📋"
+                                />
+                            </div>
                         )}
 
                         {/* Gallery Images Section */}
