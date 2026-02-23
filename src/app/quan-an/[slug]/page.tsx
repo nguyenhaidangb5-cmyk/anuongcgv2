@@ -54,6 +54,9 @@ export default function RestaurantDetailPage() {
     const [data, setData] = useState<Restaurant | null>(null);
     const [loading, setLoading] = useState(true);
     const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+    const [lightboxOpen, setLightboxOpen] = useState(false);
+    const [lightboxImages, setLightboxImages] = useState<string[]>([]);
+    const [lightboxIndex, setLightboxIndex] = useState(0);
 
     useEffect(() => {
         async function fetchData() {
@@ -248,24 +251,53 @@ export default function RestaurantDetailPage() {
                         <div className="hidden md:block bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
                             <h2 className="text-lg font-bold text-gray-900 mb-4">Liên hệ</h2>
                             <div className="space-y-3">
-                                {data.map_link && (
+                                {/* Zalo ưu tiên 1 */}
+                                {(data as any).zalo_phone && (
                                     <a
-                                        href={data.map_link}
+                                        href={`https://zalo.me/${(data as any).zalo_phone}`}
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg"
                                     >
-                                        <span className="text-xl">🗺️</span>
-                                        <span>Chỉ đường</span>
+                                        <span className="text-xl">💬</span>
+                                        <span>Chat Zalo</span>
                                     </a>
                                 )}
-                                {data.phone && (
+
+                                {/* Phone ưu tiên 2 */}
+                                {!(data as any).zalo_phone && data.phone && (
                                     <a
                                         href={`tel:${data.phone}`}
                                         className="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg"
                                     >
                                         <span className="text-xl">📞</span>
                                         <span>Gọi ngay</span>
+                                    </a>
+                                )}
+
+                                {/* Map ưu tiên 3 */}
+                                {!(data as any).zalo_phone && !data.phone && data.map_link && (
+                                    <a
+                                        href={data.map_link}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg"
+                                    >
+                                        <span className="text-xl">🗺️</span>
+                                        <span>Chỉ đường</span>
+                                    </a>
+                                )}
+
+                                {/* Map link shown separately if phone also exists */}
+                                {data.map_link && (data.phone || (data as any).zalo_phone) && (
+                                    <a
+                                        href={data.map_link}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="w-full bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-all border border-blue-200"
+                                    >
+                                        <span className="text-xl">🗺️</span>
+                                        <span>Chỉ đường</span>
                                     </a>
                                 )}
 
@@ -322,40 +354,99 @@ export default function RestaurantDetailPage() {
                 </div>
             </div>
 
-            {/* Sticky Footer (Mobile Only) */}
-            <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-2xl p-3 md:hidden z-40">
+            {/* Sticky Footer (Mobile Only) - Level 1 Ordering */}
+            <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] p-3 md:hidden z-50">
                 <div className="flex gap-3">
-                    {data.map_link && (
+                    {/* Left: Xem Menu */}
+                    {data.menu_images && data.menu_images.length > 0 ? (
+                        <button
+                            onClick={() => {
+                                setLightboxImages(data.menu_images!.map(img => img.sourceUrl));
+                                setLightboxIndex(0);
+                                setLightboxOpen(true);
+                            }}
+                            className="flex-shrink-0 bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 border border-gray-300"
+                        >
+                            <span className="text-lg">📖</span>
+                            <span className="text-sm">Xem Menu</span>
+                        </button>
+                    ) : (
+                        <button
+                            disabled
+                            className="flex-shrink-0 bg-gray-50 text-gray-400 font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2 border border-gray-200 cursor-not-allowed"
+                            title="Chưa có menu"
+                        >
+                            <span className="text-lg">📖</span>
+                            <span className="text-sm">Chưa có menu</span>
+                        </button>
+                    )}
+
+                    {/* Right: Smart Contact Button */}
+                    {(data as any).zalo_phone ? (
                         <a
-                            href={data.map_link}
+                            href={`https://zalo.me/${(data as any).zalo_phone}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="flex-1 bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 shadow-lg"
                         >
+                            <span className="text-lg">💬</span>
+                            <span>Chat Zalo</span>
+                        </a>
+                    ) : data.phone ? (
+                        <a
+                            href={`tel:${data.phone}`}
+                            className="flex-1 bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 shadow-lg"
+                        >
+                            <span className="text-lg">📞</span>
+                            <span>Gọi Ngay</span>
+                        </a>
+                    ) : data.map_link ? (
+                        <a
+                            href={data.map_link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex-1 bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 shadow-lg"
+                        >
                             <span className="text-lg">🗺️</span>
                             <span>Chỉ đường</span>
                         </a>
-                    )}
-                    {data.phone && (
-                        <a
-                            href={`tel:${data.phone}`}
-                            className="flex-1 bg-green-500 hover:bg-green-600 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 shadow-lg"
-                        >
-                            <span className="text-lg">📞</span>
-                            <span>Gọi ngay</span>
-                        </a>
-                    )}
-
-                    {/* Nút Báo cáo (Mobile) */}
-                    <button
-                        onClick={() => setIsReportModalOpen(true)}
-                        className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 border-2 border-gray-300"
-                    >
-                        <span className="text-lg">🚩</span>
-                        <span>Báo cáo</span>
-                    </button>
+                    ) : null}
                 </div>
             </div>
+
+            {/* Lightbox for Menu / Gallery */}
+            {lightboxOpen && lightboxImages.length > 0 && (
+                <div
+                    className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center"
+                    onClick={() => setLightboxOpen(false)}
+                >
+                    <button
+                        className="absolute top-4 right-4 text-white bg-white/20 hover:bg-white/30 rounded-full w-10 h-10 flex items-center justify-center text-xl z-10"
+                        onClick={() => setLightboxOpen(false)}
+                    >
+                        ✕
+                    </button>
+                    <button
+                        className="absolute left-4 top-1/2 -translate-y-1/2 text-white bg-white/20 hover:bg-white/30 rounded-full w-10 h-10 flex items-center justify-center z-10"
+                        onClick={(e) => { e.stopPropagation(); setLightboxIndex(i => Math.max(0, i - 1)); }}
+                    >
+                        ‹
+                    </button>
+                    <img
+                        src={lightboxImages[lightboxIndex]}
+                        alt="Menu"
+                        className="max-h-screen max-w-[90vw] object-contain rounded-lg"
+                        onClick={(e) => e.stopPropagation()}
+                    />
+                    <button
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-white bg-white/20 hover:bg-white/30 rounded-full w-10 h-10 flex items-center justify-center z-10"
+                        onClick={(e) => { e.stopPropagation(); setLightboxIndex(i => Math.min(lightboxImages.length - 1, i + 1)); }}
+                    >
+                        ›
+                    </button>
+                    <div className="absolute bottom-4 text-white text-sm">{lightboxIndex + 1} / {lightboxImages.length}</div>
+                </div>
+            )}
 
             {/* Report Modal */}
             {data && (

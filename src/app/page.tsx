@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { Navbar } from '@/components/Navbar';
 import { RestaurantCard } from '@/components/RestaurantCard';
 import { HeroSection } from '@/components/HeroSection';
-import { fetchNewestRestaurants, fetchStickyRestaurants, fetchBlogPosts } from '@/lib/api';
+import { fetchNewestRestaurants, fetchTopRatedRestaurants, fetchBlogPosts } from '@/lib/api';
 import { TrackableLink } from '@/components/TrackableLink';
 import { CollectionCarousel } from '@/components/CollectionCarousel';
 import { BlogGrid } from '@/components/BlogGrid';
@@ -12,8 +12,8 @@ import Image from 'next/image';
 export const revalidate = 10;
 
 export default async function Home() {
-  // Step 1: Fetch Top 5 (Sticky posts)
-  const top5Restaurants = await fetchStickyRestaurants(5);
+  // Step 1: Fetch Top 5 (Hống thứ c cấo nhất)
+  const top5Restaurants = await fetchTopRatedRestaurants(5);
 
   // Step 2: Extract IDs to exclude from new arrivals
   const excludeIds = top5Restaurants.map(r => r.id);
@@ -36,14 +36,15 @@ export default async function Home() {
         <div className="container mx-auto px-4">
           <div className="flex overflow-x-auto gap-3 md:gap-4 no-scrollbar py-2 md:justify-center">
             {[
+              { name: '🌅 Ăn sáng', category: 'an-sang' },
               { name: '🔥 Quán Hot', category: 'trending' },
-              { name: '🍻 Quán nhậu', category: 'quan-nhau' },
-              { name: '🍚 Cơm/Món nước', category: 'com-mon-nuoc' },
+              { name: '🍚 Cơm', category: 'com-mon-nuoc' },
               { name: '🦐 Hải sản', category: 'hai-san' },
               { name: '🍢 Đồ ăn vặt', category: 'do-an-vat' },
-              { name: '🎁 Đặc sản địa phương', category: 'dac-san-dia-phuong' },
+              { name: '🎁 Đặc sản', category: 'dac-san-dia-phuong' },
               { name: '🥤 Trà sữa/Cafe', category: 'tra-sua-cafe' },
-              { name: '🥦 Món chay', category: 'mon-chay' }
+              { name: '🥦 Món chay', category: 'mon-chay' },
+              { name: '🍻 Quán nhậu', category: 'quan-nhau' }
             ].map((cat, idx) => (
               <Link
                 key={idx}

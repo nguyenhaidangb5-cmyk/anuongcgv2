@@ -877,7 +877,7 @@ class Can_Giuoc_Food_Core
         ));
 
         // Text fields
-        $fields = array('phone', 'address', 'hours', 'map_link', 'rating_food', 'rating_price', 'rating_service', 'rating_ambiance');
+        $fields = array('phone', 'address', 'hours', 'map_link', 'zalo_phone', 'rating_food', 'rating_price', 'rating_service', 'rating_ambiance');
         foreach ($fields as $field) {
             register_rest_field('quan_an', $field, array(
                 'get_callback' => function ($object) use ($field) {

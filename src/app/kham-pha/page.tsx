@@ -407,13 +407,14 @@ function ExplorePageContent() {
                             </h3>
                             <div className="space-y-2">
                                 {[
+                                    { value: 'an-sang', label: '🌅 Ăn sáng' },
                                     { value: 'quan-nhau', label: '🍻 Quán nhậu' },
-                                    { value: 'com-mon-nuoc', label: '🍚 Cơm/Món nước' },
+                                    { value: 'com-mon-nuoc', label: '🍚 Cơm' },
+                                    { value: 'hai-san', label: '🦐 Hải sản' },
                                     { value: 'do-an-vat', label: '🍢 Đồ ăn vặt' },
                                     { value: 'dac-san-dia-phuong', label: '🎁 Đặc sản địa phương' },
                                     { value: 'mon-chay', label: '🥦 Món chay' },
-                                    { value: 'tra-sua-cafe', label: '🥤 Trà sữa/Cafe' },
-                                    { value: 'hai-san', label: '🦐 Hải sản' }
+                                    { value: 'tra-sua-cafe', label: '🥤 Trà sữa/Cafe' }
                                 ].map((type) => (
                                     <label key={type.value} className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-2 rounded-lg transition-colors">
                                         <input
@@ -632,12 +633,14 @@ function ExplorePageContent() {
                                 <h3 className="font-bold text-gray-900 flex items-center gap-2">🍜 Loại hình</h3>
                                 <div className="grid grid-cols-2 gap-2">
                                     {[
+                                        { value: 'an-sang', label: '🌅 Ăn sáng' },
                                         { value: 'quan-nhau', label: '🍻 Nhậu' },
                                         { value: 'com-mon-nuoc', label: '🍚 Cơm' },
+                                        { value: 'hai-san', label: '🦐 Hải sản' },
                                         { value: 'do-an-vat', label: '🍢 Ăn vặt' },
                                         { value: 'tra-sua-cafe', label: '🥤 Cafe' },
-                                        { value: 'hai-san', label: '🦐 Hải sản' },
-                                        { value: 'mon-chay', label: '🥦 Chay' }
+                                        { value: 'mon-chay', label: '🥦 Chay' },
+                                        { value: 'dac-san-dia-phuong', label: '🎁 Đặc sản' }
                                     ].map((type) => (
                                         <label key={type.value} className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg">
                                             <input

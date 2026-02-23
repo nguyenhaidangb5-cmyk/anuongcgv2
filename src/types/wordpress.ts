@@ -31,6 +31,7 @@ export interface Restaurant {
     price?: string;
     price_range?: string; // value cho logic
     map_link?: string;
+    zalo_phone?: string;  // Số Zalo để mở link zalo.me
     badges?: string[];
 
     // Ratings
