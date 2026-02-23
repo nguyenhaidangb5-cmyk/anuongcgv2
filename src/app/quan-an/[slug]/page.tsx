@@ -57,6 +57,7 @@ export default function RestaurantDetailPage() {
     const [lightboxOpen, setLightboxOpen] = useState(false);
     const [lightboxImages, setLightboxImages] = useState<string[]>([]);
     const [lightboxIndex, setLightboxIndex] = useState(0);
+    const [touchStartX, setTouchStartX] = useState<number | null>(null);
 
     useEffect(() => {
         async function fetchData() {
@@ -69,9 +70,47 @@ export default function RestaurantDetailPage() {
                 setLoading(false);
             }
         }
-
         fetchData();
     }, [slug]);
+
+    // Keyboard navigation + body scroll lock for lightbox
+    useEffect(() => {
+        if (!lightboxOpen) return;
+        document.body.style.overflow = 'hidden';
+        const handleKey = (e: KeyboardEvent) => {
+            if (e.key === 'ArrowLeft') setLightboxIndex(i => Math.max(0, i - 1));
+            if (e.key === 'ArrowRight') setLightboxIndex(i => Math.min(lightboxImages.length - 1, i + 1));
+            if (e.key === 'Escape') setLightboxOpen(false);
+        };
+        window.addEventListener('keydown', handleKey);
+        return () => {
+            window.removeEventListener('keydown', handleKey);
+            document.body.style.overflow = '';
+        };
+    }, [lightboxOpen, lightboxImages.length]);
+
+    const lightboxPrev = () => setLightboxIndex(i => Math.max(0, i - 1));
+    const lightboxNext = () => setLightboxIndex(i => Math.min(lightboxImages.length - 1, i + 1));
+
+    const handleTouchStart = (e: React.TouchEvent) => {
+        setTouchStartX(e.touches[0].clientX);
+    };
+    const handleTouchEnd = (e: React.TouchEvent) => {
+        if (touchStartX === null) return;
+        const delta = e.changedTouches[0].clientX - touchStartX;
+        if (Math.abs(delta) > 50) {
+            if (delta < 0) lightboxNext();
+            else lightboxPrev();
+        }
+        setTouchStartX(null);
+    };
+
+    const openMenuLightbox = () => {
+        if (!data?.menu_images?.length) return;
+        setLightboxImages(data.menu_images.map(img => img.sourceUrl));
+        setLightboxIndex(0);
+        setLightboxOpen(true);
+    };
 
     if (loading) {
         return (
@@ -362,15 +401,11 @@ export default function RestaurantDetailPage() {
                     {/* Left: Xem Menu */}
                     {data.menu_images && data.menu_images.length > 0 ? (
                         <button
-                            onClick={() => {
-                                setLightboxImages(data.menu_images!.map(img => img.sourceUrl));
-                                setLightboxIndex(0);
-                                setLightboxOpen(true);
-                            }}
+                            onClick={openMenuLightbox}
                             className="flex-shrink-0 bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 border border-gray-300"
                         >
                             <span className="text-lg">📖</span>
-                            <span className="text-sm">Xem Menu</span>
+                            <span className="text-sm">Xem Menu ({data.menu_images.length})</span>
                         </button>
                     ) : (
                         <button
@@ -416,37 +451,81 @@ export default function RestaurantDetailPage() {
                 </div>
             </div>
 
-            {/* Lightbox for Menu / Gallery */}
+            {/* Lightbox - Full-screen mobile-optimized Menu/Gallery viewer */}
             {lightboxOpen && lightboxImages.length > 0 && (
                 <div
-                    className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center"
-                    onClick={() => setLightboxOpen(false)}
+                    className="fixed inset-0 z-[200] bg-black flex flex-col"
+                    onTouchStart={handleTouchStart}
+                    onTouchEnd={handleTouchEnd}
                 >
-                    <button
-                        className="absolute top-4 right-4 text-white bg-white/20 hover:bg-white/30 rounded-full w-10 h-10 flex items-center justify-center text-xl z-10"
-                        onClick={() => setLightboxOpen(false)}
-                    >
-                        ✕
-                    </button>
-                    <button
-                        className="absolute left-4 top-1/2 -translate-y-1/2 text-white bg-white/20 hover:bg-white/30 rounded-full w-10 h-10 flex items-center justify-center z-10"
-                        onClick={(e) => { e.stopPropagation(); setLightboxIndex(i => Math.max(0, i - 1)); }}
-                    >
-                        ‹
-                    </button>
-                    <img
-                        src={lightboxImages[lightboxIndex]}
-                        alt="Menu"
-                        className="max-h-screen max-w-[90vw] object-contain rounded-lg"
-                        onClick={(e) => e.stopPropagation()}
-                    />
-                    <button
-                        className="absolute right-4 top-1/2 -translate-y-1/2 text-white bg-white/20 hover:bg-white/30 rounded-full w-10 h-10 flex items-center justify-center z-10"
-                        onClick={(e) => { e.stopPropagation(); setLightboxIndex(i => Math.min(lightboxImages.length - 1, i + 1)); }}
-                    >
-                        ›
-                    </button>
-                    <div className="absolute bottom-4 text-white text-sm">{lightboxIndex + 1} / {lightboxImages.length}</div>
+                    {/* Header bar */}
+                    <div className="flex items-center justify-between px-4 py-3 bg-black/80 backdrop-blur-sm">
+                        <div className="text-white font-semibold text-base">📖 Thực Đơn</div>
+                        <div className="text-white/70 text-sm font-medium">{lightboxIndex + 1} / {lightboxImages.length}</div>
+                        <button
+                            className="text-white bg-white/20 hover:bg-white/30 active:bg-white/40 rounded-full w-10 h-10 flex items-center justify-center text-lg font-bold transition-all"
+                            onClick={() => setLightboxOpen(false)}
+                            aria-label="Đóng"
+                        >
+                            ✕
+                        </button>
+                    </div>
+
+                    {/* Image area */}
+                    <div className="flex-1 flex items-center justify-center relative overflow-hidden">
+                        {/* Prev button */}
+                        <button
+                            className={`absolute left-2 z-10 w-14 h-14 flex items-center justify-center rounded-full text-white text-3xl font-light transition-all active:scale-90 ${lightboxIndex === 0 ? 'bg-white/10 opacity-30 cursor-not-allowed' : 'bg-white/20 hover:bg-white/35'
+                                }`}
+                            onClick={lightboxPrev}
+                            disabled={lightboxIndex === 0}
+                            aria-label="Ảnh trước"
+                        >
+                            ‹
+                        </button>
+
+                        {/* Image */}
+                        <img
+                            src={lightboxImages[lightboxIndex]}
+                            alt={`Menu ${lightboxIndex + 1}`}
+                            className="max-h-full max-w-full object-contain select-none"
+                            draggable={false}
+                        />
+
+                        {/* Next button */}
+                        <button
+                            className={`absolute right-2 z-10 w-14 h-14 flex items-center justify-center rounded-full text-white text-3xl font-light transition-all active:scale-90 ${lightboxIndex === lightboxImages.length - 1 ? 'bg-white/10 opacity-30 cursor-not-allowed' : 'bg-white/20 hover:bg-white/35'
+                                }`}
+                            onClick={lightboxNext}
+                            disabled={lightboxIndex === lightboxImages.length - 1}
+                            aria-label="Ảnh tiếp theo"
+                        >
+                            ›
+                        </button>
+                    </div>
+
+                    {/* Dot indicators (for ≤10 images) */}
+                    {lightboxImages.length > 1 && lightboxImages.length <= 10 && (
+                        <div className="flex justify-center gap-2 py-3 bg-black/80">
+                            {lightboxImages.map((_, i) => (
+                                <button
+                                    key={i}
+                                    onClick={() => setLightboxIndex(i)}
+                                    className={`w-2 h-2 rounded-full transition-all ${i === lightboxIndex ? 'bg-white scale-125' : 'bg-white/40'
+                                        }`}
+                                />
+                            ))}
+                        </div>
+                    )}
+
+                    {/* Swipe hint (shown only on first image) */}
+                    {lightboxImages.length > 1 && lightboxIndex === 0 && (
+                        <div className="absolute bottom-16 left-0 right-0 flex justify-center pointer-events-none">
+                            <span className="bg-black/50 text-white/70 text-xs px-3 py-1 rounded-full">
+                                👉 Vuốt để xem ảnh tiếp theo
+                            </span>
+                        </div>
+                    )}
                 </div>
             )}
 

@@ -90,6 +90,8 @@ class Can_Giuoc_Food_Core
             'labels' => $labels,
             'supports' => array('title', 'editor', 'thumbnail', 'excerpt'),
             'public' => true,
+            'publicly_queryable' => true,
+            'exclude_from_search' => false, // BẮT BUỘC để WP search bao gồm CPT này
             'show_ui' => true,
             'show_in_menu' => true,
             'menu_position' => 5,
@@ -2772,7 +2774,8 @@ add_action('init', function () {
  * Chạy sau khi taxonomy food_type đã được đăng ký (priority 20)
  */
 add_action('init', function () {
-    if (!taxonomy_exists('food_type')) return;
+    if (!taxonomy_exists('food_type'))
+        return;
     if (!term_exists('an-sang', 'food_type')) {
         wp_insert_term('Ăn Sáng', 'food_type', array(
             'slug' => 'an-sang',
@@ -2800,72 +2803,82 @@ add_action('add_meta_boxes', function () {
 }, 99);
 
 /**
- * PHẦN 2: FIX SEARCH - Tăng cường tìm kiếm UTF-8 tiếng Việt
- * Hook vào REST API query để mở rộng tìm kiếm vào ACF fields + meta
+ * PHẦN 2: FIX SEARCH UTF-8 TIẾNG VIỆT - Đúng cách với posts_search
+ *
+ * GIẢI THÍCH LỖI CŨ: Hook posts_where + unset($args['s']) làm WP không build
+ * search clause nào cả → 0 kết quả. Đây là fix đúng: dùng posts_search để
+ * ĐẮP THÊM mệnh đề OR LIKE vào câu WHERE mà WP đã build sẵn.
+ *
+ * Kết quả: WP tìm theo title/content như bình thường,
+ * CỘNG THÊM tìm trong _cg_address + _cg_phone khi là REST API của quan_an.
  */
-add_filter('rest_quan_an_query', function ($args, $request) {
-    $search = $request->get_param('search');
-    if (empty($search)) return $args;
-
-    // Decode nếu frontend đã encodeURIComponent
-    $search = urldecode($search);
-    $search = sanitize_text_field($search);
-
-    // Lưu keyword để dùng trong posts_where
-    $args['_cg_search_keyword'] = $search;
-
-    // Xóa 's' mặc định để chúng ta tự handle qua posts_where
-    unset($args['s']);
-
-    return $args;
-}, 10, 2);
-
-/**
- * Tùy chỉnh WHERE clause để search UTF-8 + trong meta fields
- * Dùng LIKE với BINARY để tránh case-sensitivity issues với tiếng Việt
- */
-add_filter('posts_where', function ($where, $query) {
+add_filter('posts_search', function ($search, $query) {
     global $wpdb;
 
-    // Chỉ áp dụng cho REST API requests của quan_an
-    if (!isset($query->query_vars['_cg_search_keyword'])) return $where;
-    if (!defined('REST_REQUEST') || !REST_REQUEST) return $where;
+    // Chỉ xử lý khi đang search và là REST request của quan_an
+    if (empty($query->get('s')))
+        return $search;
+    if (!defined('REST_REQUEST') || !REST_REQUEST)
+        return $search;
+    if ($query->get('post_type') !== 'quan_an')
+        return $search;
 
-    $keyword = $query->query_vars['_cg_search_keyword'];
-    if (empty($keyword)) return $where;
+    $keyword = $query->get('s');
+    $like = '%' . $wpdb->esc_like(urldecode($keyword)) . '%';
 
-    // Escape và tạo LIKE pattern
-    $like = '%' . $wpdb->esc_like($keyword) . '%';
-
-    // Tìm trong title + content + meta (address, hours)
-    $where .= $wpdb->prepare(
-        " AND (
-            {$wpdb->posts}.post_title LIKE %s COLLATE utf8mb4_unicode_ci
-            OR {$wpdb->posts}.post_content LIKE %s COLLATE utf8mb4_unicode_ci
-            OR EXISTS (
-                SELECT 1 FROM {$wpdb->postmeta} pm
-                WHERE pm.post_id = {$wpdb->posts}.ID
-                AND pm.meta_key IN ('_cg_address', '_cg_hours', '_cg_phone')
-                AND pm.meta_value LIKE %s COLLATE utf8mb4_unicode_ci
-            )
+    // Thêm OR clause để tìm thêm trong address + phone
+    // WP đã có: (post_title LIKE ... OR post_content LIKE ...)
+    // Chúng ta ĐẮP THÊM: OR EXISTS (meta search)
+    $meta_search = $wpdb->prepare(
+        " OR EXISTS (
+            SELECT 1 FROM {$wpdb->postmeta} pm2
+            WHERE pm2.post_id = {$wpdb->posts}.ID
+            AND pm2.meta_key IN ('_cg_address', '_cg_phone')
+            AND pm2.meta_value LIKE %s
         )",
-        $like,
-        $like,
         $like
     );
 
-    return $where;
+    // Chèn vào trước dấu ) cuối cùng của search clause WP build
+    if (!empty($search)) {
+        $search = rtrim($search, ')') . $meta_search . ')';
+    }
+
+    return $search;
 }, 10, 2);
+
+/**
+ * PHẦN 3B: ADMIN CSS - Ẩn checkbox "Stick to the top of the blog" (Ghim bài viết)
+ * khỏi trang edit quán ăn. WP built-in, không thể xóa code, nên dùng CSS.
+ */
+add_action('admin_head', function () {
+    $screen = get_current_screen();
+    if (!$screen || $screen->post_type !== 'quan_an')
+        return;
+    ?>
+    <style>
+        /* Ẩn checkbox "Ghim bài viết / Stick to the top of the blog" */
+        #sticky-span,
+        label[for="sticky"],
+        .misc-pub-sticky,
+        #visibility-checkbox-sticky {
+            display: none !important;
+        }
+    </style>
+    <?php
+});
+
 
 /**
  * PHẦN 3: SORT FIX - Expose average_rating field cho REST API sort
  * Tính toán và lưu _cg_average_rating mỗi khi post được lưu
  */
 add_action('save_post_quan_an', function ($post_id) {
-    if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) return;
+    if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE)
+        return;
 
-    $food    = (float) get_post_meta($post_id, '_cg_rating_food', true);
-    $price   = (float) get_post_meta($post_id, '_cg_rating_price', true);
+    $food = (float) get_post_meta($post_id, '_cg_rating_food', true);
+    $price = (float) get_post_meta($post_id, '_cg_rating_price', true);
     $service = (float) get_post_meta($post_id, '_cg_rating_service', true);
     $ambiance = (float) get_post_meta($post_id, '_cg_rating_ambiance', true);
 
