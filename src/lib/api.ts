@@ -55,9 +55,9 @@ export async function fetchRestaurantsWithPagination(params: FetchRestaurantsPar
         _embed: '1', // Để lấy featured image
     });
 
-    // Encode search keyword để xử lý đúng UTF-8 tiếng Việt
+    // Truyền keyword trực tiếp - WP REST API tự xử lý URL decode
     if (search && search.trim()) {
-        queryParams.append('search', encodeURIComponent(search.trim()));
+        queryParams.append('search', search.trim());
     }
 
     // Handle different orderby options

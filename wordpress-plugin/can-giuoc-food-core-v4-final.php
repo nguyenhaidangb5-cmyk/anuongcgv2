@@ -1632,36 +1632,8 @@ class Can_Giuoc_Food_Core
     }
     /**
      * 8. HỖ TRỢ Sticky Post cho Custom Post Type "quan_an"
-     * Hiển thị checkbox "Stick to the top of the blog" trong Gutenberg
-     */
-    public function add_sticky_support_to_cpt()
-    {
-        global $post_type;
-        if ('quan_an' !== $post_type) {
-            return;
-        }
+    // Không có sticky/ghim metabox - đã xóa hoàn toàn
 
-        add_meta_box(
-            'quan_an_sticky_meta',
-            'Stick to the top of the blog (Ghim bài viết)',
-            array($this, 'render_sticky_meta_box'),
-            'quan_an',
-            'side',
-            'high'
-        );
-    }
-
-    public function render_sticky_meta_box($post)
-    {
-        $is_sticky = is_sticky($post->ID);
-        ?>
-        <label>
-            <input type="checkbox" name="sticky" value="sticky" <?php checked($is_sticky); ?> />
-            Stick to the top of the blog (Ghim lên đầu trang)
-        </label>
-        <p class="description">Bài viết sẽ hiển thị ở đầu danh sách trên trang chủ.</p>
-        <?php
-    }
 
     // ============================================================
     // ENTERPRISE FEATURES: TOP 5 PRO & SMART CONTRIBUTION
