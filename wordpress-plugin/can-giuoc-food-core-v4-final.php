@@ -28,8 +28,7 @@ class Can_Giuoc_Food_Core
         add_action('admin_menu', array($this, 'register_import_menu'));
         add_filter('rest_quan_an_collection_params', array($this, 'relax_rest_limit'), 10, 1);
 
-        // --- 8. STICKY POST SUPPORT ---
-        add_action('add_meta_boxes', array($this, 'add_sticky_support_to_cpt'));
+
 
         // --- 9. MEDIA UPLOADER SCRIPT ---
         add_action('admin_footer', array($this, 'enqueue_media_uploader_script'));
