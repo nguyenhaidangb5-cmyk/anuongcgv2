@@ -80,9 +80,13 @@ export async function fetchRestaurantsWithPagination(params: FetchRestaurantsPar
     const url = `${API_URL}/wp/v2/quan_an?${queryParams.toString()}`;
 
     try {
-        const response = await fetch(url, {
-            next: { revalidate: 10 } // Cache 10 giây
-        });
+        // Khi có search keyword: dùng no-store để tránh cached kết quả rỗng
+        // Khi không có search: cache 10 giây như bình thường
+        const cacheOption = search
+            ? { cache: 'no-store' as RequestCache }
+            : { next: { revalidate: 10 } };
+
+        const response = await fetch(url, cacheOption);
 
         if (!response.ok) {
             console.error('API Error:', response.status, response.statusText);

@@ -1109,7 +1109,11 @@ class Can_Giuoc_Food_Core
     public function custom_rest_query($args, $request)
     {
         if (!empty($request['search'])) {
-            $search_term = sanitize_text_field($request['search']);
+            // urldecode() TRƯỚC sanitize để giải mã URL encoding:
+            // "b%C3%A1nh+m%C3%AC" → "bánh mì" → MySQL LIKE hiểu được
+            $raw_search = urldecode($request['search']);
+            $search_term = sanitize_text_field($raw_search);
+
             // Lưu vào property để dùng trong hook posts_where
             $this->rest_search_term = $search_term;
 
