@@ -37,7 +37,6 @@ export default async function Home() {
           <div className="flex overflow-x-auto gap-3 md:gap-4 no-scrollbar py-2 md:justify-center">
             {[
               { name: '🌅 Ăn sáng', category: 'an-sang' },
-              { name: '🔥 Quán Hot', category: '', href: '/kham-pha?sort=popular' },
               { name: '🍚 Cơm', category: 'com-mon-nuoc' },
               { name: '🍢 Đồ ăn vặt', category: 'do-an-vat' },
               { name: '🎁 Đặc sản', category: 'dac-san-dia-phuong' },
@@ -47,7 +46,7 @@ export default async function Home() {
             ].map((cat, idx) => (
               <Link
                 key={idx}
-                href={cat.href ?? `/kham-pha?category=${cat.category}`}
+                href={`/kham-pha?category=${cat.category}`}
                 className="flex-shrink-0 whitespace-nowrap bg-gray-50 hover:bg-orange-500 hover:text-white px-5 py-2.5 md:px-6 md:py-3 rounded-full font-bold text-gray-700 transition-all text-sm md:text-base border border-gray-100"
               >
                 {cat.name}
