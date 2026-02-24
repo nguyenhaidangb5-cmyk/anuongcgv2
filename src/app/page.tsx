@@ -39,7 +39,6 @@ export default async function Home() {
               { name: '🌅 Ăn sáng', category: 'an-sang' },
               { name: '🔥 Quán Hot', category: '', href: '/kham-pha?sort=popular' },
               { name: '🍚 Cơm', category: 'com-mon-nuoc' },
-              { name: '🦐 Hải sản', category: 'hai-san' },
               { name: '🍢 Đồ ăn vặt', category: 'do-an-vat' },
               { name: '🎁 Đặc sản', category: 'dac-san-dia-phuong' },
               { name: '🥤 Trà sữa/Cafe', category: 'tra-sua-cafe' },
