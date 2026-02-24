@@ -263,15 +263,13 @@ export default function RestaurantDetailPage() {
                             </div>
                         )}
 
-                        {/* Menu Images Section - ẨN TRÊN MOBILE, chỉ hiện desktop */}
+                        {/* Menu Images Section - hiện trên cả mobile và desktop */}
                         {data.menu_images && data.menu_images.length > 0 && (
-                            <div className="hidden md:block">
-                                <ImageGallery
-                                    images={data.menu_images}
-                                    title="Thực Đơn"
-                                    icon="📋"
-                                />
-                            </div>
+                            <ImageGallery
+                                images={data.menu_images}
+                                title="Thực Đơn"
+                                icon="📋"
+                            />
                         )}
 
                         {/* Gallery Images Section */}
@@ -395,36 +393,44 @@ export default function RestaurantDetailPage() {
                 </div>
             </div>
 
-            {/* Sticky Footer (Mobile Only) - Level 1 Ordering */}
+            {/* Sticky Footer (Mobile Only) - 2 nút: Chỉ đường + Liên hệ */}
             <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] p-3 md:hidden z-50">
                 <div className="flex gap-3">
-                    {/* Left: Xem Menu */}
-                    {data.menu_images && data.menu_images.length > 0 ? (
-                        <button
-                            onClick={openMenuLightbox}
-                            className="flex-shrink-0 bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 border border-gray-300"
+
+                    {/* Nút trái: Chỉ đường (outline) */}
+                    {data.map_link ? (
+                        <a
+                            href={data.map_link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex-1 bg-white border-2 border-orange-400 text-orange-600 hover:bg-orange-50 font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95"
                         >
-                            <span className="text-lg">📖</span>
-                            <span className="text-sm">Xem Menu ({data.menu_images.length})</span>
-                        </button>
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                            <span>Chỉ đường</span>
+                        </a>
                     ) : (
                         <button
                             disabled
-                            className="flex-shrink-0 bg-gray-50 text-gray-400 font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2 border border-gray-200 cursor-not-allowed"
-                            title="Chưa có menu"
+                            className="flex-1 bg-gray-50 border-2 border-gray-200 text-gray-400 font-bold py-3 rounded-xl flex items-center justify-center gap-2 cursor-not-allowed"
                         >
-                            <span className="text-lg">📖</span>
-                            <span className="text-sm">Chưa có menu</span>
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                            <span>Chỉ đường</span>
                         </button>
                     )}
 
-                    {/* Right: Smart Contact Button */}
+                    {/* Nút phải: Liên hệ (solid cam) - ưu tiên Zalo > Phone */}
                     {(data as any).zalo_phone ? (
                         <a
                             href={`https://zalo.me/${(data as any).zalo_phone}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="flex-1 bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 shadow-lg"
+                            className="flex-1 bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 shadow-lg shadow-orange-200"
                         >
                             <span className="text-lg">💬</span>
                             <span>Chat Zalo</span>
@@ -432,22 +438,22 @@ export default function RestaurantDetailPage() {
                     ) : data.phone ? (
                         <a
                             href={`tel:${data.phone}`}
-                            className="flex-1 bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 shadow-lg"
+                            className="flex-1 bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 shadow-lg shadow-orange-200"
                         >
-                            <span className="text-lg">📞</span>
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                            </svg>
                             <span>Gọi Ngay</span>
                         </a>
-                    ) : data.map_link ? (
-                        <a
-                            href={data.map_link}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex-1 bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 shadow-lg"
+                    ) : (
+                        <button
+                            disabled
+                            className="flex-1 bg-gray-200 text-gray-400 font-bold py-3 rounded-xl flex items-center justify-center gap-2 cursor-not-allowed"
                         >
-                            <span className="text-lg">🗺️</span>
-                            <span>Chỉ đường</span>
-                        </a>
-                    ) : null}
+                            <span className="text-lg">📞</span>
+                            <span>Liên hệ</span>
+                        </button>
+                    )}
                 </div>
             </div>
 
