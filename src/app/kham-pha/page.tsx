@@ -1,10 +1,12 @@
 "use client";
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import Fuse from 'fuse.js';
 import { Navbar } from '@/components/Navbar';
 import { RestaurantCard } from '@/components/RestaurantCard';
 import { Restaurant } from '@/types/wordpress';
 import { useSearchParams } from 'next/navigation';
 import { fetchRestaurantsWithPagination } from '@/lib/api';
+import { normalizeVietnameseString } from '@/lib/vietnamese-utils';
 
 import { Suspense } from 'react';
 
@@ -14,12 +16,15 @@ function ExplorePageContent() {
     const initialSearch = searchParams.get('search');
     const initialSort = searchParams.get('sort');
 
-    const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
+    // allRestaurants: toàn bộ danh sách (dùng cho search client-side)
+    const [allRestaurants, setAllRestaurants] = useState<Restaurant[]>([]);
+    // pagedRestaurants: danh sách theo trang (khi không search)
+    const [pagedRestaurants, setPagedRestaurants] = useState<Restaurant[]>([]);
     const [loading, setLoading] = useState(true);
     const [loadingMore, setLoadingMore] = useState(false);
     const [showMobileFilter, setShowMobileFilter] = useState(false);
 
-    // Pagination state
+    // Pagination state (chỉ dùng khi không có search keyword)
     const [currentPage, setCurrentPage] = useState(1);
     const [totalRestaurants, setTotalRestaurants] = useState(0);
     const [totalPages, setTotalPages] = useState(0);
@@ -34,37 +39,110 @@ function ExplorePageContent() {
     const [sortBy, setSortBy] = useState<string>(initialSort || 'newest');
     const [searchKeyword, setSearchKeyword] = useState(initialSearch || '');
 
+    // Fuse.js cho client-side search (cùng config với LiveSearch)
+    const fuse = useMemo(() => {
+        if (allRestaurants.length === 0) return null;
+        return new Fuse(allRestaurants, {
+            keys: [
+                { name: 'title.rendered', weight: 2 },
+                { name: 'address', weight: 1.5 },
+                { name: 'food_type_names', weight: 1 },
+                { name: 'region_names', weight: 0.8 }
+            ],
+            threshold: 0.3,
+            ignoreLocation: true,
+            getFn: (obj, path) => {
+                const value = Fuse.config.getFn(obj, path);
+                if (typeof value === 'string') return normalizeVietnameseString(value);
+                if (Array.isArray(value)) return value.map(v => typeof v === 'string' ? normalizeVietnameseString(v) : v);
+                return value;
+            }
+        });
+    }, [allRestaurants]);
 
-    // Fetch restaurants từ API
+    // Danh sách hiển thị: nếu có search → filter client-side, không thì dùng paged
+    const searchedRestaurants = useMemo(() => {
+        if (!searchKeyword.trim() || searchKeyword.trim().length < 2) {
+            return pagedRestaurants; // Không search → dùng paged list từ API
+        }
+        if (allRestaurants.length === 0) return [];
+
+        const normalizedKeyword = normalizeVietnameseString(searchKeyword);
+
+        // Fuse.js search
+        let results: Restaurant[] = [];
+        if (fuse) {
+            results = fuse.search(normalizedKeyword).map(r => r.item);
+        }
+
+        // Fallback: substring match nếu Fuse không tìm được
+        if (results.length === 0) {
+            const lower = normalizedKeyword.toLowerCase();
+            results = allRestaurants.filter(r => {
+                const t = normalizeVietnameseString(r.title?.rendered || '').toLowerCase();
+                const a = normalizeVietnameseString(r.address || '').toLowerCase();
+                return t.includes(lower) || a.includes(lower);
+            });
+        }
+
+        return results;
+    }, [searchKeyword, allRestaurants, fuse, pagedRestaurants]);
+
+    // Fetch ALL restaurants (cho search client-side)
     useEffect(() => {
-        async function fetchData() {
-            setLoading(true);
-            setCurrentPage(1); // Reset to page 1
+        async function loadAll() {
             try {
-                const { restaurants: data, total, totalPages: pages } = await fetchRestaurantsWithPagination({
-                    per_page: 20,
+                // Fetch toàn bộ, không truyền search param
+                const { restaurants: data, total } = await fetchRestaurantsWithPagination({
+                    per_page: 200,
                     page: 1,
-                    search: searchKeyword,
-                    orderby: getSortOrderBy(sortBy),
-                    order: getSortOrder(sortBy)
                 });
-                setRestaurants(data);
-                setTotalRestaurants(total);
-                setTotalPages(pages);
-                setHasMore(pages > 1);
+                setAllRestaurants(data);
+                // Nếu không có search, dùng luôn làm paged
+                if (!searchKeyword.trim()) {
+                    setPagedRestaurants(data.slice(0, 20));
+                    setTotalRestaurants(total);
+                    setTotalPages(Math.ceil(total / 20));
+                    setHasMore(total > 20);
+                } else {
+                    setTotalRestaurants(0); // sẽ tính lại từ searchedRestaurants
+                    setHasMore(false);
+                }
             } catch (error) {
-                console.error('Error fetching restaurants:', error);
-                setRestaurants([]);
-                setTotalRestaurants(0);
-                setTotalPages(0);
-                setHasMore(false);
+                console.error('Error fetching all restaurants:', error);
             } finally {
                 setLoading(false);
             }
         }
+        loadAll();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [sortBy]);
 
+    // Fetch paged restaurants khi không có search + sort thay đổi
+    useEffect(() => {
+        if (searchKeyword.trim()) return; // Skip nếu đang search
+        async function fetchData() {
+            setLoading(true);
+            setCurrentPage(1);
+            try {
+                const { restaurants: data, total, totalPages: pages } = await fetchRestaurantsWithPagination({
+                    per_page: 20,
+                    page: 1,
+                    orderby: getSortOrderBy(sortBy),
+                    order: getSortOrder(sortBy)
+                });
+                setPagedRestaurants(data);
+                setTotalRestaurants(total);
+                setTotalPages(pages);
+                setHasMore(pages > 1);
+            } catch (error) {
+                console.error('Error fetching:', error);
+            } finally {
+                setLoading(false);
+            }
+        }
         fetchData();
-    }, [searchKeyword, sortBy]);
+    }, [sortBy]);
 
     // Helper functions for sorting
     const getSortOrderBy = (sort: string): 'date' | 'rating' | 'view_count' | undefined => {
@@ -86,9 +164,9 @@ function ExplorePageContent() {
         return 'desc';
     };
 
-    // Load more function
+    // Load more (chỉ áp dụng khi không có search, dùng phân trang từ API)
     const loadMoreRestaurants = async () => {
-        if (loadingMore || !hasMore) return;
+        if (loadingMore || !hasMore || searchKeyword.trim()) return;
 
         setLoadingMore(true);
         try {
@@ -96,15 +174,14 @@ function ExplorePageContent() {
             const { restaurants: data } = await fetchRestaurantsWithPagination({
                 per_page: 20,
                 page: nextPage,
-                search: searchKeyword,
                 orderby: getSortOrderBy(sortBy),
                 order: getSortOrder(sortBy)
             });
-            setRestaurants(prev => [...prev, ...data]);
+            setPagedRestaurants(prev => [...prev, ...data]);
             setCurrentPage(nextPage);
             setHasMore(nextPage < totalPages);
         } catch (error) {
-            console.error('Error loading more restaurants:', error);
+            console.error('Error loading more:', error);
         } finally {
             setLoadingMore(false);
         }
@@ -119,18 +196,12 @@ function ExplorePageContent() {
                 setSelectedFoodTypes([initialCategory]);
             }
         }
-
-        if (initialSort === 'newest') {
-            setSortBy('newest');
-        }
-
-        if (initialSearch) {
-            setSearchKeyword(initialSearch);
-        }
+        if (initialSort === 'newest') setSortBy('newest');
+        if (initialSearch) setSearchKeyword(initialSearch);
     }, [initialCategory, initialSort, initialSearch]);
 
-    // Filter logic (client-side)
-    const filteredRestaurants = restaurants.filter((restaurant) => {
+    // Filter logic (client-side) - áp dụng thêm filters lên searchedRestaurants
+    const filteredRestaurants = searchedRestaurants.filter((restaurant) => {
         // Filter by region (SỬ DỤNG taxonomy từ _embedded)
         if (selectedRegions.length > 0) {
             const embedded = (restaurant as any)._embedded;
@@ -285,7 +356,10 @@ function ExplorePageContent() {
                         🔍 Khám phá Ẩm thực
                     </h1>
                     <p className="text-sm md:text-base text-gray-600">
-                        Tìm thấy <span className="font-bold text-orange-600">{totalRestaurants}</span> quán ăn
+                        {searchKeyword.trim()
+                            ? <>Tìm thấy <span className="font-bold text-orange-600">{filteredRestaurants.length}</span> quán cho &ldquo;{searchKeyword}&rdquo;</>
+                            : <>Tìm thấy <span className="font-bold text-orange-600">{totalRestaurants}</span> quán ăn</>
+                        }
                     </p>
                 </div>
 
