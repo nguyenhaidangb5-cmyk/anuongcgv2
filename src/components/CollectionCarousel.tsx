@@ -53,52 +53,49 @@ export function CollectionCarousel() {
                 <p className="text-gray-500 text-sm mt-1">Khám phá theo bộ sưu tập</p>
             </div>
 
-            {/* Horizontal Scroll Container */}
-            <div className="relative overflow-hidden">
-                <div className="flex overflow-x-auto gap-3 md:gap-4 pb-4 snap-x snap-mandatory scrollbar-hide px-4 md:px-0">
+            {/* MOBILE: Horizontal Scroll (giữ nguyên) */}
+            <div className="relative overflow-hidden md:hidden">
+                <div className="flex overflow-x-auto gap-3 pb-4 snap-x snap-mandatory px-4" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
                     {collections.map((collection, index) => (
                         <Link
                             key={index}
                             href={collection.href}
-                            className="flex-shrink-0 w-32 md:w-56 group snap-start"
+                            className="flex-shrink-0 w-32 group snap-start"
                         >
                             <div className="relative aspect-square rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300">
-                                {/* Background Image */}
-                                <Image
-                                    src={collection.image}
-                                    alt={collection.title}
-                                    fill
-                                    className="object-cover group-hover:scale-110 transition-transform duration-500"
-                                />
-
-                                {/* Dark Overlay */}
+                                <Image src={collection.image} alt={collection.title} fill className="object-cover group-hover:scale-110 transition-transform duration-500" />
                                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
-
-                                {/* Content */}
                                 <div className="absolute inset-0 flex flex-col items-center justify-center text-white p-2">
-                                    <div className="text-3xl md:text-5xl mb-1 md:mb-3">{collection.emoji}</div>
-                                    <h3 className="text-xs md:text-xl font-bold drop-shadow-lg text-center leading-tight">
-                                        {collection.title}
-                                    </h3>
+                                    <div className="text-3xl mb-1">{collection.emoji}</div>
+                                    <h3 className="text-xs font-bold drop-shadow-lg text-center leading-tight">{collection.title}</h3>
                                 </div>
                             </div>
                         </Link>
                     ))}
                 </div>
-
-                {/* Scroll Hint - Mobile */}
-                <div className="absolute right-0 top-0 bottom-4 w-16 bg-gradient-to-l from-gray-50 to-transparent pointer-events-none md:hidden" />
+                {/* Scroll Hint gradient */}
+                <div className="absolute right-0 top-0 bottom-4 w-16 bg-gradient-to-l from-gray-50 to-transparent pointer-events-none" />
             </div>
 
-            <style jsx global>{`
-        .scrollbar-hide::-webkit-scrollbar {
-          display: none;
-        }
-        .scrollbar-hide {
-          -ms-overflow-style: none;
-          scrollbar-width: none;
-        }
-      `}</style>
+            {/* DESKTOP: Grid 5 cột dàn đều */}
+            <div className="hidden md:grid md:grid-cols-5 md:gap-5 lg:gap-6">
+                {collections.map((collection, index) => (
+                    <Link
+                        key={index}
+                        href={collection.href}
+                        className="group"
+                    >
+                        <div className="relative aspect-square rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300">
+                            <Image src={collection.image} alt={collection.title} fill className="object-cover group-hover:scale-110 transition-transform duration-500" />
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
+                            <div className="absolute inset-0 flex flex-col items-center justify-center text-white p-3">
+                                <div className="text-5xl mb-3">{collection.emoji}</div>
+                                <h3 className="text-xl font-bold drop-shadow-lg text-center leading-tight">{collection.title}</h3>
+                            </div>
+                        </div>
+                    </Link>
+                ))}
+            </div>
         </section>
     );
 }
