@@ -33,9 +33,10 @@ export const LiveSearch: React.FC<LiveSearchProps> = ({
                 { name: 'food_type_names', weight: 1 },
                 { name: 'region_names', weight: 0.8 }
             ],
-            threshold: 0.4, // 0 = perfect match, 1 = match anything
-            ignoreLocation: true,
-            useExtendedSearch: true,
+            threshold: 0.3,      // Giảm từ 0.4 → 0.3 để match chính xác hơn
+            ignoreLocation: true, // Cho phép match ở bất kỳ vị trí nào trong chuỗi
+            // KHÔNG dùng useExtendedSearch vì nó thay đổi cú pháp (cần prefix 'keyword)
+            // điều này gây lỗi khi tìm từ ngắn như FC, HN, v.v.
             getFn: (obj, path) => {
                 const value = Fuse.config.getFn(obj, path);
                 if (typeof value === 'string') {
@@ -54,7 +55,7 @@ export const LiveSearch: React.FC<LiveSearchProps> = ({
         const loadRestaurants = async () => {
             try {
                 const data = await fetchRestaurants({
-                    per_page: 100 // Fetch more for better search results
+                    per_page: 200 // Tăng lên 200 để bao phủ toàn bộ quán
                 });
                 setAllRestaurants(data);
             } catch (error) {
@@ -64,7 +65,7 @@ export const LiveSearch: React.FC<LiveSearchProps> = ({
         loadRestaurants();
     }, []);
 
-    // Debounced search with Fuse.js
+    // Debounced search with Fuse.js + fallback substring search
     useEffect(() => {
         if (keyword.trim().length < 2) {
             setResults([]);
@@ -89,10 +90,24 @@ export const LiveSearch: React.FC<LiveSearchProps> = ({
                     // Perform fuzzy search
                     const fuseResults = fuse.search(normalizedKeyword);
 
-                    // Extract items and limit to 15
-                    const searchResults = fuseResults
+                    // Extract items
+                    let searchResults = fuseResults
                         .map(result => result.item)
                         .slice(0, 15);
+
+                    // FALLBACK: Nếu Fuse trả về 0 kết quả, thử tìm trực tiếp
+                    // bằng substring case-insensitive (phù hợp từ viết tắt như FC, HN...)
+                    if (searchResults.length === 0) {
+                        const lowerKeyword = normalizedKeyword.toLowerCase();
+                        searchResults = allRestaurants
+                            .filter(r => {
+                                const titleNorm = normalizeVietnameseString(r.title?.rendered || '');
+                                const addressNorm = normalizeVietnameseString(r.address || '');
+                                return titleNorm.includes(lowerKeyword) ||
+                                    addressNorm.includes(lowerKeyword);
+                            })
+                            .slice(0, 15);
+                    }
 
                     setResults(searchResults);
                     setShowDropdown(true);

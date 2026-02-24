@@ -13,6 +13,11 @@ if (!defined('ABSPATH')) {
 
 class Can_Giuoc_Food_Core
 {
+    /**
+     * Lưu search term tạm thời để dùng trong posts_where hook
+     */
+    private $rest_search_term = '';
+
 
     public function __construct()
     {
@@ -1096,11 +1101,21 @@ class Can_Giuoc_Food_Core
 
     /**
      * 5. Custom REST Query - Search & Sort
+     *
+     * Dùng posts_where hook để tìm kiếm bằng LIKE trực tiếp thay vì $args['s']
+     * Lý do: $args['s'] của WordPress có word-boundary/min-length quirks khiến
+     * từ ngắn như "FC" hoặc tên viết tắt không được tìm thấy.
      */
     public function custom_rest_query($args, $request)
     {
         if (!empty($request['search'])) {
-            $args['s'] = sanitize_text_field($request['search']);
+            $search_term = sanitize_text_field($request['search']);
+            // Lưu vào property để dùng trong hook posts_where
+            $this->rest_search_term = $search_term;
+
+            // KHÔNG dùng $args['s'] - thay bằng custom WHERE clause
+            // để đảm bảo tìm được từ ngắn, viết tắt, hoa/thường
+            add_filter('posts_where', array($this, 'extend_search_where_for_rest'), 10, 2);
         }
 
         if (!empty($request['orderby']) && $request['orderby'] === 'date') {
@@ -1121,6 +1136,36 @@ class Can_Giuoc_Food_Core
         }
 
         return $args;
+    }
+
+    /**
+     * Hook: posts_where - Thêm điều kiện LIKE vào SQL query
+     * Tìm kiếm trong post_title (không phân biệt hoa/thường)
+     * Gọi qua add_filter() trong custom_rest_query() và tự xóa sau khi dùng
+     */
+    public function extend_search_where_for_rest($where, $query)
+    {
+        global $wpdb;
+
+        if (!empty($this->rest_search_term)) {
+            $term = '%' . $wpdb->esc_like($this->rest_search_term) . '%';
+
+            // Tìm trong post_title với LIKE (case-insensitive nhờ collation utf8_general_ci)
+            // Cũng tìm trong post_content để bao quát hơn
+            $where .= $wpdb->prepare(
+                " AND ({$wpdb->posts}.post_title LIKE %s OR {$wpdb->posts}.post_content LIKE %s)",
+                $term,
+                $term
+            );
+
+            // Xóa filter sau khi dùng để không ảnh hưởng query khác
+            remove_filter('posts_where', array($this, 'extend_search_where_for_rest'), 10);
+
+            // Reset property
+            $this->rest_search_term = '';
+        }
+
+        return $where;
     }
 
     /**
