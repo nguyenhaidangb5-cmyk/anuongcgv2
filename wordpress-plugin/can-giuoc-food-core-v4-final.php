@@ -2572,6 +2572,33 @@ class Can_Giuoc_Food_Core
             return;
         }
 
+        // ====================================
+        // BƯỚC 1: DỌN RÁC - Xóa bài "Hello world!" mặc định của WordPress
+        // ====================================
+        $hello_world_query = new WP_Query(array(
+            'post_type' => 'post',
+            'post_status' => 'any',
+            'posts_per_page' => -1,
+            'tax_query' => array(), // Bỏ qua taxonomy filter
+            'meta_query' => array(), // Bỏ qua meta filter
+            'fields' => 'ids',
+        ));
+
+        if ($hello_world_query->have_posts()) {
+            foreach ($hello_world_query->posts as $p_id) {
+                $p = get_post($p_id);
+                // Xóa nếu tiêu đề là "Hello world!" hoặc slug là "hello-world"
+                if ($p && ($p->post_name === 'hello-world' || $p->post_title === 'Hello world!')) {
+                    wp_delete_post($p_id, true); // true = force delete, bỏ qua Trash
+                }
+            }
+        }
+        wp_reset_postdata();
+
+        // ====================================
+        // BƯỚC 2: Kiểm tra xem đã có bài viết mẫu chưa (chống chạy lại 2 lần)
+        // ====================================
+
         // Kiểm tra xem đã có bài viết mẫu chưa
         $existing_posts = get_posts(array(
             'post_type' => 'post',
@@ -2876,16 +2903,16 @@ add_action('admin_head', function () {
     if (!$screen || $screen->post_type !== 'quan_an')
         return;
     ?>
-    <style>
-        /* Ẩn checkbox "Ghim bài viết / Stick to the top of the blog" */
-        #sticky-span,
-        label[for="sticky"],
-        .misc-pub-sticky,
-        #visibility-checkbox-sticky {
-            display: none !important;
-        }
-    </style>
-    <?php
+        <style>
+            /* Ẩn checkbox "Ghim bài viết / Stick to the top of the blog" */
+            #sticky-span,
+            label[for="sticky"],
+            .misc-pub-sticky,
+            #visibility-checkbox-sticky {
+                display: none !important;
+            }
+        </style>
+        <?php
 });
 
 
