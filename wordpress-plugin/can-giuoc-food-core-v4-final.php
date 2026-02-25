@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /**
  * Plugin Name: Cần Giuộc Food Core (v4.0 - Optimized)
  * Description: Plugin tối ưu với Meta Box hợp nhất, API response đầy đủ thumbnail_url và formatted_price
@@ -57,7 +57,8 @@ class Can_Giuoc_Food_Core
         add_filter('rest_pre_serve_request', array($this, 'add_cors_headers'), 10, 4);
 
         // --- 13. BLOG POST SEEDING ---
-        add_action('init', array($this, 'generate_sample_blog_posts'));
+        // Dùng wp_loaded thay vì init để đảm bảo user auth và headers sẵn sàng
+        add_action('wp_loaded', array($this, 'generate_sample_blog_posts'));
     }
 
     /**
@@ -2643,8 +2644,8 @@ class Can_Giuoc_Food_Core
         // Danh sách bài viết mẫu
         $sample_posts = array(
             array(
-                'title' => 'Top 5 quán ăn sáng "chắc bụng" trứ danh tại Cần Giuộc',
-                'content' => '<p><strong>Chào bà con!</strong> Sáng nay ăn gì? Câu hỏi tưởng đơn giản nhưng luôn khiến nhiều người đau đầu mỗi buổi sáng. Đừng lo, hôm nay mình sẽ chia sẻ với các bạn <strong>Top 5 quán ăn sáng ngon, chắc bụng</strong> mà ai đến Cần Giuộc cũng phải ghé qua một lần!</p>
+                'title'      => 'Top 5 quán ăn sáng "chắc bụng" trứ danh tại Cần Giuộc',
+                'content'    => '<p><strong>Chào bà con!</strong> Sáng nay ăn gì? Câu hỏi tưởng đơn giản nhưng luôn khiến nhiều người đau đầu mỗi buổi sáng. Đừng lo, hôm nay mình sẽ chia sẻ với các bạn <strong>Top 5 quán ăn sáng ngon, chắc bụng</strong> mà ai đến Cần Giuộc cũng phải ghé qua một lần!</p>
 
 <h2>1. Phở Bò Cô Ba - Hương vị truyền thống 30 năm</h2>
 <p>Nằm ngay trung tâm thị trấn, quán phở Cô Ba đã có mặt hơn 30 năm với hương vị đậm đà, nước dùng trong veo. Điểm đặc biệt là <em>thịt bò tươi ngon</em>, thái mỏng vừa phải, ăn kèm với rau thơm tự nhiên. Giá chỉ từ <strong>35.000đ/tô</strong>, ăn no căng bụng!</p>
@@ -2663,11 +2664,11 @@ class Can_Giuoc_Food_Core
 
 <p><strong>Kết luận:</strong> Cần Giuộc không chỉ nổi tiếng với cảnh đẹp mà còn có nền ẩm thực phong phú, đặc biệt là các món ăn sáng ngon, bổ, rẻ. Hãy thử ghé qua và trải nghiệm nhé! 😋</p>',
                 'categories' => array($category_ids['Review'], $category_ids['Ăn sáng']),
-                'unsplash_keyword' => 'pho vietnam'
+                'image_url'  => 'https://images.unsplash.com/photo-1555126634-323283e090fa?w=800&h=600&fit=crop&auto=format',
             ),
             array(
-                'title' => 'Cầm 20k "càn quét" thiên đường ăn vặt Cần Giuộc',
-                'content' => '<p>Ai bảo ít tiền không ăn ngon? Với chỉ <strong>20.000đ trong túi</strong>, bạn hoàn toàn có thể "càn quét" cả thiên đường ăn vặt tại Cần Giuộc! Cùng mình khám phá ngay nhé!</p>
+                'title'      => 'Cầm 20k "càn quét" thiên đường ăn vặt Cần Giuộc',
+                'content'    => '<p>Ai bảo ít tiền không ăn ngon? Với chỉ <strong>20.000đ trong túi</strong>, bạn hoàn toàn có thể "càn quét" cả thiên đường ăn vặt tại Cần Giuộc! Cùng mình khám phá ngay nhé!</p>
 
 <h2>🍢 Bánh tráng trộn - Món ăn vặt "quốc dân"</h2>
 <p>Giá chỉ <strong>10.000đ/phần</strong>, bạn đã có ngay một đĩa bánh tráng trộn đầy ắp topping: trứng cút, bò khô, rau răm, khô gà... Vị chua chua, cay cay, ngọt ngọt hòa quyện tạo nên hương vị khó cưỡng!</p>
@@ -2683,11 +2684,11 @@ class Can_Giuoc_Food_Core
 
 <p><strong>Lời kết:</strong> Với 20k, bạn đã có thể tận hưởng trọn vẹn thiên đường ăn vặt tại Cần Giuộc. Hãy rủ hội bạn thân đi "quét sạch" các món ngon này nhé! 🎉</p>',
                 'categories' => array($category_ids['Ẩm thực đường phố']),
-                'unsplash_keyword' => 'street food vietnam'
+                'image_url'  => 'https://images.unsplash.com/photo-1504544750208-dc0358e89ead?w=800&h=600&fit=crop&auto=format',
             ),
             array(
-                'title' => 'Phát hiện tiệm Cafe view "xịn xò" mới toanh check-in mỏi tay',
-                'content' => '<p><strong>Cuối tuần đi đâu?</strong> Nếu bạn đang tìm một không gian cafe <em>view đẹp, sống ảo cực chất</em> thì đừng bỏ qua quán cafe mới toanh này tại Cần Giuộc nhé!</p>
+                'title'      => 'Phát hiện tiệm Cafe view "xịn xò" mới toanh check-in mỏi tay',
+                'content'    => '<p><strong>Cuối tuần đi đâu?</strong> Nếu bạn đang tìm một không gian cafe <em>view đẹp, sống ảo cực chất</em> thì đừng bỏ qua quán cafe mới toanh này tại Cần Giuộc nhé!</p>
 
 <h2>☕ Không gian "sang chảnh" giữa lòng Cần Giuộc</h2>
 <p>Quán được thiết kế theo phong cách <strong>minimalist hiện đại</strong>, kết hợp với cây xanh tự nhiên tạo cảm giác thư thái, gần gũi. Đặc biệt, quán có <em>góc view nhìn ra cánh đồng lúa xanh mướt</em> - điểm check-in cực "hot" cho hội sống ảo!</p>
@@ -2713,45 +2714,49 @@ class Can_Giuoc_Food_Core
 
 <p><strong>Lời khuyên:</strong> Nên đến vào buổi chiều hoặc tối để tận hưởng không khí mát mẻ và view hoàng hôn tuyệt đẹp. Nhớ đặt chỗ trước vào cuối tuần nhé vì quán rất đông! 🌅</p>',
                 'categories' => array($category_ids['Cafe'], $category_ids['Check-in']),
-                'unsplash_keyword' => 'coffee shop vietnam'
-            )
+                'image_url'  => 'https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=800&h=600&fit=crop&auto=format',
+            ),
         );
 
         $created_count = 0;
 
         // Tạo từng bài viết
         foreach ($sample_posts as $post_data) {
-            // Tạo bài viết
             $post_id = wp_insert_post(array(
-                'post_title' => $post_data['title'],
+                'post_title'   => $post_data['title'],
                 'post_content' => $post_data['content'],
-                'post_status' => 'publish',
-                'post_type' => 'post',
-                'post_author' => 1
+                'post_status'  => 'publish',
+                'post_type'    => 'post',
+                'post_author'  => 1,
             ));
 
-            if (!is_wp_error($post_id)) {
+            if (!is_wp_error($post_id) && $post_id > 0) {
                 // Gán categories
                 wp_set_post_categories($post_id, $post_data['categories']);
 
                 // Đánh dấu là bài viết mẫu
                 update_post_meta($post_id, '_is_sample_post', '1');
 
-                // Tải ảnh từ Unsplash
-                $image_url = 'https://source.unsplash.com/800x600/?' . urlencode($post_data['unsplash_keyword']);
-                $this->download_and_set_featured_image($post_id, $image_url, $post_data['title']);
+                // Lưu URL ảnh trực tiếp (không tải về để tránh timeout)
+                // Frontend đọc meta này để hiển thị thumbnail
+                update_post_meta($post_id, '_thumbnail_url', $post_data['image_url']);
+
+                // Thử tải ảnh về (bọc trong try-catch, không crash nếu lỗi)
+                $this->download_and_set_featured_image($post_id, $post_data['image_url'], $post_data['title']);
 
                 $created_count++;
             }
         }
 
         // Hiển thị thông báo thành công
-        echo '<div style="padding: 20px; background: #d4edda; border: 2px solid #28a745; border-radius: 8px; margin: 20px; font-family: Arial;">';
-        echo '<h2 style="color: #155724;">✅ Tạo bài viết mẫu thành công!</h2>';
-        echo '<p>Đã tạo <strong>' . $created_count . ' bài viết blog mẫu</strong> với ảnh từ Unsplash.</p>';
+        echo '<!DOCTYPE html><html lang="vi"><head><meta charset="UTF-8"><title>Seeding Done</title></head><body>';
+        echo '<div style="padding: 30px; background: #d4edda; border: 2px solid #28a745; border-radius: 8px; margin: 20px; font-family: Arial, sans-serif; max-width: 600px;">';
+        echo '<h2 style="color: #155724; margin-top:0;">✅ Đã dọn rác và tạo xong 3 bài viết mẫu!</h2>';
+        echo '<p>Đã tạo <strong>' . $created_count . ' bài viết blog mẫu</strong> thành công.</p>';
         echo '<p><a href="' . admin_url('edit.php') . '" style="background: #28a745; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin-top: 10px;">Xem danh sách bài viết →</a></p>';
-        echo '</div>';
+        echo '</div></body></html>';
         die();
+
     }
 
     /**
@@ -2903,16 +2908,16 @@ add_action('admin_head', function () {
     if (!$screen || $screen->post_type !== 'quan_an')
         return;
     ?>
-        <style>
-            /* Ẩn checkbox "Ghim bài viết / Stick to the top of the blog" */
-            #sticky-span,
-            label[for="sticky"],
-            .misc-pub-sticky,
-            #visibility-checkbox-sticky {
-                display: none !important;
-            }
-        </style>
-        <?php
+    <style>
+        /* Ẩn checkbox "Ghim bài viết / Stick to the top of the blog" */
+        #sticky-span,
+        label[for="sticky"],
+        .misc-pub-sticky,
+        #visibility-checkbox-sticky {
+            display: none !important;
+        }
+    </style>
+    <?php
 });
 
 
