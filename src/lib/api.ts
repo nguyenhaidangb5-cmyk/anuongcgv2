@@ -81,10 +81,10 @@ export async function fetchRestaurantsWithPagination(params: FetchRestaurantsPar
 
     try {
         // Khi có search keyword: dùng no-store để tránh cached kết quả rỗng
-        // Khi không có search: cache 10 giây như bình thường
+        // Khi không có search: cache 60 giây để trang chủ tự cập nhật quán mới
         const cacheOption = search
             ? { cache: 'no-store' as RequestCache }
-            : { next: { revalidate: 10 } };
+            : { next: { revalidate: 60 } };
 
         const response = await fetch(url, cacheOption);
 
@@ -198,7 +198,7 @@ export async function fetchNewestRestaurants(limit: number = 6, excludeIds: numb
 
     try {
         const response = await fetch(url, {
-            next: { revalidate: 10 }
+            next: { revalidate: 60 } // Tự động làm mới sau 60 giây
         });
 
         if (!response.ok) {

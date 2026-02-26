@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import Lightbox from "yet-another-react-lightbox";
 import "yet-another-react-lightbox/styles.css";
+import Zoom from "yet-another-react-lightbox/plugins/zoom";
 import { ImageObject } from '@/types/wordpress';
 
 interface ImageGalleryProps {
@@ -61,6 +62,13 @@ export const ImageGallery: React.FC<ImageGalleryProps> = ({ images, title, icon 
                 close={() => setLightboxOpen(false)}
                 slides={slides}
                 index={photoIndex}
+                plugins={[Zoom]}
+                zoom={{
+                    maxZoomPixelRatio: 3,
+                    zoomInMultiplier: 2,
+                    doubleTapDelay: 300,
+                    scrollToZoom: true,
+                }}
             />
         </div>
     );

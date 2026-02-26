@@ -8,8 +8,8 @@ import { CollectionCarousel } from '@/components/CollectionCarousel';
 import { BlogGrid } from '@/components/BlogGrid';
 import Image from 'next/image';
 
-// Revalidate trang chủ mỗi 1 giờ
-export const revalidate = 10;
+// Revalidate trang chủ mỗi 60 giây — đảm bảo quán mới hiện sau tối đa 60s
+export const revalidate = 60;
 
 export default async function Home() {
   // Step 1: Fetch Top 5 (Hống thứ c cấo nhất)
