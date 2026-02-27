@@ -18,7 +18,7 @@ const collections: Collection[] = [
         emoji: '🍜'
     },
     {
-        title: 'Vỉa Hè < 50k',
+        title: 'Vỉa hè < 30k',
         href: '/kham-pha?price_range=under-30k',
         image: 'https://images.unsplash.com/photo-1601050690597-df0568f70950?w=600&h=600&fit=crop',
         emoji: '🍢'

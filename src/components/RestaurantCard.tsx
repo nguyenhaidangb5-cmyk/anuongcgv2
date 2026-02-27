@@ -141,7 +141,7 @@ export const RestaurantCard: React.FC<RestaurantCardProps> = ({ data }) => {
 
                 <div className="flex flex-row md:flex-col lg:flex-row items-center justify-between mt-auto md:mt-0 gap-2 md:gap-0 md:border-t md:border-gray-50 md:pt-3">
                     <span className="text-xs md:text-sm font-bold text-gray-900 bg-gray-50 md:bg-transparent px-2 py-0.5 rounded md:p-0">
-                        {data.price_range === 'under-30k' ? '< 30k' : data.price || '---'}
+                        {data.price_range === 'under-30k' ? 'Dưới 30.000đ' : data.price || '---'}
                     </span>
 
                     <span
