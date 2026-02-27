@@ -365,7 +365,7 @@ function ExplorePageContent() {
 
                 <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
                     {/* Sidebar Filters (Desktop) */}
-                    <aside className="hidden lg:block lg:col-span-1 space-y-6">
+                    <aside className="hidden lg:block lg:col-span-1 space-y-6 sticky top-24 self-start max-h-[calc(100vh-7rem)] overflow-y-auto pb-4">
 
                         {/* Clear All Filters */}
                         {hasActiveFilters && (

@@ -284,7 +284,7 @@ export default function RestaurantDetailPage() {
                     </div>
 
                     {/* Right Column - Ratings & Actions */}
-                    <div className="space-y-6">
+                    <div className="space-y-6 sticky top-24 self-start">
 
                         {/* Action Buttons (Desktop) */}
                         <div className="hidden md:block bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
@@ -353,7 +353,7 @@ export default function RestaurantDetailPage() {
 
                         {/* Detailed Ratings */}
                         {ratings.length > 0 && (
-                            <div className="bg-white rounded-2xl p-4 md:p-6 border border-gray-100 shadow-sm sticky top-24">
+                            <div className="bg-white rounded-2xl p-4 md:p-6 border border-gray-100 shadow-sm">
                                 <h2 className="text-lg md:text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
                                     <span>⭐</span> Đánh giá chi tiết
                                 </h2>
