@@ -2644,8 +2644,8 @@ class Can_Giuoc_Food_Core
         // Danh sách bài viết mẫu
         $sample_posts = array(
             array(
-                'title'      => 'Top 5 quán ăn sáng "chắc bụng" trứ danh tại Cần Giuộc',
-                'content'    => '<p><strong>Chào bà con!</strong> Sáng nay ăn gì? Câu hỏi tưởng đơn giản nhưng luôn khiến nhiều người đau đầu mỗi buổi sáng. Đừng lo, hôm nay mình sẽ chia sẻ với các bạn <strong>Top 5 quán ăn sáng ngon, chắc bụng</strong> mà ai đến Cần Giuộc cũng phải ghé qua một lần!</p>
+                'title' => 'Top 5 quán ăn sáng "chắc bụng" trứ danh tại Cần Giuộc',
+                'content' => '<p><strong>Chào bà con!</strong> Sáng nay ăn gì? Câu hỏi tưởng đơn giản nhưng luôn khiến nhiều người đau đầu mỗi buổi sáng. Đừng lo, hôm nay mình sẽ chia sẻ với các bạn <strong>Top 5 quán ăn sáng ngon, chắc bụng</strong> mà ai đến Cần Giuộc cũng phải ghé qua một lần!</p>
 
 <h2>1. Phở Bò Cô Ba - Hương vị truyền thống 30 năm</h2>
 <p>Nằm ngay trung tâm thị trấn, quán phở Cô Ba đã có mặt hơn 30 năm với hương vị đậm đà, nước dùng trong veo. Điểm đặc biệt là <em>thịt bò tươi ngon</em>, thái mỏng vừa phải, ăn kèm với rau thơm tự nhiên. Giá chỉ từ <strong>35.000đ/tô</strong>, ăn no căng bụng!</p>
@@ -2664,11 +2664,11 @@ class Can_Giuoc_Food_Core
 
 <p><strong>Kết luận:</strong> Cần Giuộc không chỉ nổi tiếng với cảnh đẹp mà còn có nền ẩm thực phong phú, đặc biệt là các món ăn sáng ngon, bổ, rẻ. Hãy thử ghé qua và trải nghiệm nhé! 😋</p>',
                 'categories' => array($category_ids['Review'], $category_ids['Ăn sáng']),
-                'image_url'  => 'https://images.unsplash.com/photo-1555126634-323283e090fa?w=800&h=600&fit=crop&auto=format',
+                'image_url' => 'https://images.unsplash.com/photo-1555126634-323283e090fa?w=800&h=600&fit=crop&auto=format',
             ),
             array(
-                'title'      => 'Cầm 20k "càn quét" thiên đường ăn vặt Cần Giuộc',
-                'content'    => '<p>Ai bảo ít tiền không ăn ngon? Với chỉ <strong>20.000đ trong túi</strong>, bạn hoàn toàn có thể "càn quét" cả thiên đường ăn vặt tại Cần Giuộc! Cùng mình khám phá ngay nhé!</p>
+                'title' => 'Cầm 20k "càn quét" thiên đường ăn vặt Cần Giuộc',
+                'content' => '<p>Ai bảo ít tiền không ăn ngon? Với chỉ <strong>20.000đ trong túi</strong>, bạn hoàn toàn có thể "càn quét" cả thiên đường ăn vặt tại Cần Giuộc! Cùng mình khám phá ngay nhé!</p>
 
 <h2>🍢 Bánh tráng trộn - Món ăn vặt "quốc dân"</h2>
 <p>Giá chỉ <strong>10.000đ/phần</strong>, bạn đã có ngay một đĩa bánh tráng trộn đầy ắp topping: trứng cút, bò khô, rau răm, khô gà... Vị chua chua, cay cay, ngọt ngọt hòa quyện tạo nên hương vị khó cưỡng!</p>
@@ -2684,11 +2684,11 @@ class Can_Giuoc_Food_Core
 
 <p><strong>Lời kết:</strong> Với 20k, bạn đã có thể tận hưởng trọn vẹn thiên đường ăn vặt tại Cần Giuộc. Hãy rủ hội bạn thân đi "quét sạch" các món ngon này nhé! 🎉</p>',
                 'categories' => array($category_ids['Ẩm thực đường phố']),
-                'image_url'  => 'https://images.unsplash.com/photo-1504544750208-dc0358e89ead?w=800&h=600&fit=crop&auto=format',
+                'image_url' => 'https://images.unsplash.com/photo-1504544750208-dc0358e89ead?w=800&h=600&fit=crop&auto=format',
             ),
             array(
-                'title'      => 'Phát hiện tiệm Cafe view "xịn xò" mới toanh check-in mỏi tay',
-                'content'    => '<p><strong>Cuối tuần đi đâu?</strong> Nếu bạn đang tìm một không gian cafe <em>view đẹp, sống ảo cực chất</em> thì đừng bỏ qua quán cafe mới toanh này tại Cần Giuộc nhé!</p>
+                'title' => 'Phát hiện tiệm Cafe view "xịn xò" mới toanh check-in mỏi tay',
+                'content' => '<p><strong>Cuối tuần đi đâu?</strong> Nếu bạn đang tìm một không gian cafe <em>view đẹp, sống ảo cực chất</em> thì đừng bỏ qua quán cafe mới toanh này tại Cần Giuộc nhé!</p>
 
 <h2>☕ Không gian "sang chảnh" giữa lòng Cần Giuộc</h2>
 <p>Quán được thiết kế theo phong cách <strong>minimalist hiện đại</strong>, kết hợp với cây xanh tự nhiên tạo cảm giác thư thái, gần gũi. Đặc biệt, quán có <em>góc view nhìn ra cánh đồng lúa xanh mướt</em> - điểm check-in cực "hot" cho hội sống ảo!</p>
@@ -2714,7 +2714,7 @@ class Can_Giuoc_Food_Core
 
 <p><strong>Lời khuyên:</strong> Nên đến vào buổi chiều hoặc tối để tận hưởng không khí mát mẻ và view hoàng hôn tuyệt đẹp. Nhớ đặt chỗ trước vào cuối tuần nhé vì quán rất đông! 🌅</p>',
                 'categories' => array($category_ids['Cafe'], $category_ids['Check-in']),
-                'image_url'  => 'https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=800&h=600&fit=crop&auto=format',
+                'image_url' => 'https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=800&h=600&fit=crop&auto=format',
             ),
         );
 
@@ -2723,11 +2723,11 @@ class Can_Giuoc_Food_Core
         // Tạo từng bài viết
         foreach ($sample_posts as $post_data) {
             $post_id = wp_insert_post(array(
-                'post_title'   => $post_data['title'],
+                'post_title' => $post_data['title'],
                 'post_content' => $post_data['content'],
-                'post_status'  => 'publish',
-                'post_type'    => 'post',
-                'post_author'  => 1,
+                'post_status' => 'publish',
+                'post_type' => 'post',
+                'post_author' => 1,
             ));
 
             if (!is_wp_error($post_id) && $post_id > 0) {
@@ -2940,3 +2940,35 @@ add_action('save_post_quan_an', function ($post_id) {
 
     update_post_meta($post_id, '_cg_average_rating', round($avg, 2));
 }, 20);
+
+
+/**
+ * TẮT TẠO NHIỀU KÍCH THƯỚC ẢNH TỰ ĐỘNG - Tiết kiệm dung lượng Host
+ *
+ * WordPress mặc định tạo 5 bản sao khi upload ảnh:
+ *   thumbnail (150x150), medium (300x300), medium_large (768xN),
+ *   large (1024x1024), 1536x1536, 2048x2048 + ảnh gốc (full).
+ *
+ * Hook này NGĂN CHẶN toàn bộ, CHỈ GIỮ LẠI 'thumbnail' cho wp-admin.
+ * Ảnh gốc (full) luôn được lưu và không bị ảnh hưởng bởi hook này.
+ *
+ * Kích hoạt: NGAY LẬP TỨC từ lần upload tiếp theo.
+ * Ảnh cũ:    Không bị xóa (dọn thủ công bằng plugin Regenerate Thumbnails nếu cần).
+ */
+add_filter('intermediate_image_sizes_advanced', function (array $sizes): array {
+    // Danh sách kích thước cần XÓA BỎ
+    $disabled_sizes = [
+        'medium',
+        'medium_large',
+        'large',
+        '1536x1536',
+        '2048x2048',
+    ];
+
+    foreach ($disabled_sizes as $size) {
+        unset($sizes[$size]);
+    }
+
+    // Chỉ còn lại: 'thumbnail' (và bất kỳ custom size nào plugin/theme đăng ký)
+    return $sizes;
+});
