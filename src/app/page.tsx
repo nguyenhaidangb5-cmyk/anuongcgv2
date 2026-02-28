@@ -36,25 +36,24 @@ export default async function Home() {
         <div className="container mx-auto px-4">
           <div className="flex overflow-x-auto gap-3 md:gap-4 no-scrollbar py-2 md:justify-center">
             {[
-              { name: '🌅 Ăn sáng', category: 'an-sang' },
-              { name: '🍚 Cơm', category: 'com-mon-nuoc' },
-              { name: '🍢 Đồ ăn vặt', category: 'do-an-vat' },
-              { name: '🎁 Đặc sản', category: 'dac-san-dia-phuong' },
-              { name: '🥤 Trà sữa/Cafe', category: 'tra-sua-cafe' },
-              { name: '🥦 Món chay', category: 'mon-chay' },
-              { name: '🍻 Quán nhậu', category: 'quan-nhau' }
-            ].map((cat, idx) => (
+              { name: '🏘️ Thị trấn Cần Giuọc', region: 'Thị trấn Cần Giuộc' },
+              { name: '🌾 Xã Mỹ Lộc', region: 'Xã Mỹ Lộc' },
+              { name: '🌿 Xã Phước Lý', region: 'Xã Phước Lý' },
+              { name: '🏡 Xã Phước Vĩnh Tây', region: 'Xã Phước Vĩnh Tây' },
+              { name: '🧭 Xã Tân Tập', region: 'Xã Tân Tập' },
+            ].map((loc, idx) => (
               <Link
                 key={idx}
-                href={`/kham-pha?category=${cat.category}`}
+                href={`/kham-pha?khu_vuc=${encodeURIComponent(loc.region)}`}
                 className="flex-shrink-0 whitespace-nowrap bg-gray-50 hover:bg-orange-500 hover:text-white px-5 py-2.5 md:px-6 md:py-3 rounded-full font-bold text-gray-700 transition-all text-sm md:text-base border border-gray-100"
               >
-                {cat.name}
+                {loc.name}
               </Link>
             ))}
           </div>
         </div>
       </section>
+
 
       {/* Main Content */}
       <main className="container mx-auto px-4 pb-20">

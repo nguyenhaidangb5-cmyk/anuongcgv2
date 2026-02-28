@@ -16,6 +16,7 @@ function ExplorePageContent() {
     const initialSearch = searchParams.get('search');
     const initialSort = searchParams.get('sort');
     const initialPriceRange = searchParams.get('price_range');
+    const initialKhuVuc = searchParams.get('khu_vuc');
 
     // allRestaurants: toàn bộ danh sách (dùng cho search client-side)
     const [allRestaurants, setAllRestaurants] = useState<Restaurant[]>([]);
@@ -200,9 +201,12 @@ function ExplorePageContent() {
         if (initialPriceRange) {
             setSelectedPriceRanges([initialPriceRange]);
         }
+        if (initialKhuVuc) {
+            setSelectedRegions([initialKhuVuc]);
+        }
         if (initialSort === 'newest') setSortBy('newest');
         if (initialSearch) setSearchKeyword(initialSearch);
-    }, [initialCategory, initialSort, initialSearch, initialPriceRange]);
+    }, [initialCategory, initialSort, initialSearch, initialPriceRange, initialKhuVuc]);
 
     // Filter logic (client-side) - áp dụng thêm filters lên searchedRestaurants
     const filteredRestaurants = searchedRestaurants.filter((restaurant) => {

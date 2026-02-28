@@ -12,35 +12,47 @@ interface Collection {
 
 const collections: Collection[] = [
     {
-        title: 'Ăn Sáng',
+        title: 'Bữa Sáng Ấm Bụng',
         href: '/kham-pha?category=an-sang',
         image: 'https://images.unsplash.com/photo-1525351484163-7529414344d8?w=600&h=600&fit=crop',
-        emoji: '🍜'
+        emoji: '🌅'
     },
     {
-        title: 'Vỉa hè < 30k',
-        href: '/kham-pha?price_range=under-30k',
+        title: 'Lê La Ăn Vặt',
+        href: '/kham-pha?category=do-an-vat',
         image: 'https://images.unsplash.com/photo-1601050690597-df0568f70950?w=600&h=600&fit=crop',
         emoji: '🍢'
     },
     {
-        title: 'Cà phê chill',
+        title: 'Góc Cà Phê & Trà Sữa',
         href: '/kham-pha?category=tra-sua-cafe',
         image: 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=600&h=600&fit=crop',
         emoji: '☕'
     },
     {
-        title: 'Nhậu Lai Rai',
+        title: 'Lai Rai Chiến Hữu',
         href: '/kham-pha?category=quan-nhau',
         image: 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=600&h=600&fit=crop',
         emoji: '🍻'
     },
     {
-        title: 'Món Chay',
+        title: 'Thanh Đạm Món Chay',
         href: '/kham-pha?category=mon-chay',
         image: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=600&h=600&fit=crop',
         emoji: '🥗'
-    }
+    },
+    {
+        title: 'Tinh Hoa Cần Giuộc',
+        href: '/kham-pha?category=dac-san-dia-phuong',
+        image: 'https://images.unsplash.com/photo-1567620905732-2d1ec7ab7445?w=600&h=600&fit=crop',
+        emoji: '🎁'
+    },
+    {
+        title: 'Chắc Bụng Bữa Cơm',
+        href: '/kham-pha?category=com-mon-nuoc',
+        image: 'https://images.unsplash.com/photo-1603133872878-684f208fb84b?w=600&h=600&fit=crop',
+        emoji: '🍚'
+    },
 ];
 
 export function CollectionCarousel() {
@@ -53,44 +65,30 @@ export function CollectionCarousel() {
                 <p className="text-gray-500 text-sm mt-1">Khám phá theo bộ sưu tập</p>
             </div>
 
-            {/* MOBILE: Horizontal Scroll (giữ nguyên) */}
-            <div className="relative overflow-hidden md:hidden">
-                <div className="flex overflow-x-auto gap-3 pb-4 snap-x snap-mandatory px-4" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-                    {collections.map((collection, index) => (
-                        <Link
-                            key={index}
-                            href={collection.href}
-                            className="flex-shrink-0 w-32 group snap-start"
-                        >
-                            <div className="relative aspect-square rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300">
-                                <Image src={collection.image} alt={collection.title} fill className="object-cover group-hover:scale-110 transition-transform duration-500" />
-                                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
-                                <div className="absolute inset-0 flex flex-col items-center justify-center text-white p-2">
-                                    <div className="text-3xl mb-1">{collection.emoji}</div>
-                                    <h3 className="text-xs font-bold drop-shadow-lg text-center leading-tight">{collection.title}</h3>
-                                </div>
-                            </div>
-                        </Link>
-                    ))}
-                </div>
-                {/* Scroll Hint gradient */}
-                <div className="absolute right-0 top-0 bottom-4 w-16 bg-gradient-to-l from-gray-50 to-transparent pointer-events-none" />
-            </div>
-
-            {/* DESKTOP: Grid 5 cột dàn đều */}
-            <div className="hidden md:grid md:grid-cols-5 md:gap-5 lg:gap-6">
+            {/* Unified Horizontal Scroll — works on both Mobile (swipe) and Desktop (mouse scroll) */}
+            <div
+                className="flex overflow-x-auto gap-4 pb-4 snap-x snap-mandatory"
+                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', WebkitOverflowScrolling: 'touch' }}
+            >
                 {collections.map((collection, index) => (
                     <Link
                         key={index}
                         href={collection.href}
-                        className="group"
+                        className="flex-shrink-0 w-36 md:w-44 group snap-start"
                     >
                         <div className="relative aspect-square rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300">
-                            <Image src={collection.image} alt={collection.title} fill className="object-cover group-hover:scale-110 transition-transform duration-500" />
+                            <Image
+                                src={collection.image}
+                                alt={collection.title}
+                                fill
+                                className="object-cover group-hover:scale-110 transition-transform duration-500"
+                            />
                             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
-                            <div className="absolute inset-0 flex flex-col items-center justify-center text-white p-3">
-                                <div className="text-5xl mb-3">{collection.emoji}</div>
-                                <h3 className="text-xl font-bold drop-shadow-lg text-center leading-tight">{collection.title}</h3>
+                            <div className="absolute inset-0 flex flex-col items-center justify-center text-white p-2">
+                                <div className="text-3xl md:text-4xl mb-2">{collection.emoji}</div>
+                                <h3 className="text-xs md:text-sm font-bold drop-shadow-lg text-center leading-tight px-1">
+                                    {collection.title}
+                                </h3>
                             </div>
                         </div>
                     </Link>
