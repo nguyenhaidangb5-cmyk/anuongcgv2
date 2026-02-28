@@ -36,7 +36,7 @@ export default async function Home() {
         <div className="container mx-auto px-4">
           <div className="flex overflow-x-auto gap-3 md:gap-4 no-scrollbar py-2 md:justify-center">
             {[
-              { name: '🏘️ Thị trấn Cần Giuọc', region: 'Thị trấn Cần Giuộc' },
+              { name: '🏘️ Thị trấn Cần Giuộc', region: 'Thị trấn Cần Giuộc' },
               { name: '🌾 Xã Mỹ Lộc', region: 'Xã Mỹ Lộc' },
               { name: '🌿 Xã Phước Lý', region: 'Xã Phước Lý' },
               { name: '🏡 Xã Phước Vĩnh Tây', region: 'Xã Phước Vĩnh Tây' },

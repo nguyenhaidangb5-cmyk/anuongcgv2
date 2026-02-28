@@ -41,18 +41,6 @@ const collections: Collection[] = [
         image: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=600&h=600&fit=crop',
         emoji: '🥗'
     },
-    {
-        title: 'Tinh Hoa Cần Giuộc',
-        href: '/kham-pha?category=dac-san-dia-phuong',
-        image: 'https://images.unsplash.com/photo-1567620905732-2d1ec7ab7445?w=600&h=600&fit=crop',
-        emoji: '🎁'
-    },
-    {
-        title: 'Chắc Bụng Bữa Cơm',
-        href: '/kham-pha?category=com-mon-nuoc',
-        image: 'https://images.unsplash.com/photo-1603133872878-684f208fb84b?w=600&h=600&fit=crop',
-        emoji: '🍚'
-    },
 ];
 
 export function CollectionCarousel() {
@@ -65,16 +53,13 @@ export function CollectionCarousel() {
                 <p className="text-gray-500 text-sm mt-1">Khám phá theo bộ sưu tập</p>
             </div>
 
-            {/* Unified Horizontal Scroll — works on both Mobile (swipe) and Desktop (mouse scroll) */}
-            <div
-                className="flex overflow-x-auto gap-4 pb-4 snap-x snap-mandatory"
-                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', WebkitOverflowScrolling: 'touch' }}
-            >
+            {/* Grid 5 cột desktop, 3 cột tablet, 2 cột mobile */}
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
                 {collections.map((collection, index) => (
                     <Link
                         key={index}
                         href={collection.href}
-                        className="flex-shrink-0 w-36 md:w-44 group snap-start"
+                        className="group"
                     >
                         <div className="relative aspect-square rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300">
                             <Image
@@ -84,9 +69,9 @@ export function CollectionCarousel() {
                                 className="object-cover group-hover:scale-110 transition-transform duration-500"
                             />
                             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
-                            <div className="absolute inset-0 flex flex-col items-center justify-center text-white p-2">
-                                <div className="text-3xl md:text-4xl mb-2">{collection.emoji}</div>
-                                <h3 className="text-xs md:text-sm font-bold drop-shadow-lg text-center leading-tight px-1">
+                            <div className="absolute inset-0 flex flex-col items-center justify-center text-white p-3">
+                                <div className="text-4xl md:text-5xl mb-2 md:mb-3">{collection.emoji}</div>
+                                <h3 className="text-sm md:text-base font-bold drop-shadow-lg text-center leading-tight">
                                     {collection.title}
                                 </h3>
                             </div>
