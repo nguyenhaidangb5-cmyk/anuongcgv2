@@ -189,37 +189,39 @@ export const LiveSearch: React.FC<LiveSearchProps> = ({
                                     key={restaurant.id}
                                     href={`/quan-an/${restaurant.slug}`}
                                     onClick={() => setShowDropdown(false)}
-                                    className="flex items-center gap-4 p-4 hover:bg-orange-50 transition-colors group"
+                                    className="flex items-center justify-between p-3 border-b border-gray-100 hover:bg-gray-50 transition-colors w-full cursor-pointer group"
                                 >
-                                    {/* Thumbnail */}
-                                    <div className="relative w-12 h-12 md:w-14 md:h-14 flex-shrink-0 rounded-lg overflow-hidden bg-gray-100">
-                                        {restaurant.thumbnail_url ? (
-                                            <Image
-                                                src={restaurant.thumbnail_url}
-                                                alt={restaurant.title.rendered}
-                                                fill
-                                                className="object-cover group-hover:scale-110 transition-transform duration-300"
-                                            />
-                                        ) : (
-                                            <div className="w-full h-full flex items-center justify-center text-2xl">
-                                                🍽️
-                                            </div>
-                                        )}
-                                    </div>
+                                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                                        {/* Thumbnail */}
+                                        <div className="relative w-12 h-12 flex-shrink-0 rounded-md overflow-hidden bg-gray-100">
+                                            {restaurant.thumbnail_url ? (
+                                                <Image
+                                                    src={restaurant.thumbnail_url}
+                                                    alt={restaurant.title.rendered}
+                                                    fill
+                                                    className="object-cover"
+                                                />
+                                            ) : (
+                                                <div className="w-full h-full flex items-center justify-center text-xl bg-gray-100">
+                                                    🍽️
+                                                </div>
+                                            )}
+                                        </div>
 
-                                    {/* Info */}
-                                    <div className="flex-1 min-w-0">
-                                        <h4 className="font-bold text-gray-900 text-sm md:text-base mb-1 line-clamp-1 group-hover:text-orange-600 transition-colors">
-                                            {restaurant.title.rendered}
-                                        </h4>
-                                        <p className="text-xs text-gray-500 line-clamp-1">
-                                            📍 {restaurant.address || 'Cần Giuộc'}
-                                        </p>
+                                        {/* Info */}
+                                        <div className="flex flex-col items-start flex-1 min-w-0">
+                                            <h4 className="font-semibold text-gray-800 text-sm md:text-base truncate w-full group-hover:text-orange-600 transition-colors">
+                                                {restaurant.title.rendered}
+                                            </h4>
+                                            <p className="text-xs md:text-sm text-gray-500 truncate w-full">
+                                                📍 {restaurant.address || 'Cần Giuộc'}
+                                            </p>
+                                        </div>
                                     </div>
 
                                     {/* Rating */}
                                     {restaurant.average_rating && (
-                                        <div className="flex-shrink-0 bg-orange-500 text-white px-2 py-1 rounded-lg font-bold text-xs flex items-center gap-1">
+                                        <div className="flex-shrink-0 ml-2 bg-orange-500 text-white px-2 py-1 rounded-lg font-bold text-xs flex items-center gap-1">
                                             <span>⭐</span>
                                             <span>{restaurant.average_rating}</span>
                                         </div>
