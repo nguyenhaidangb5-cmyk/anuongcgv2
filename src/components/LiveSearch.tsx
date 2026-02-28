@@ -183,50 +183,52 @@ export const LiveSearch: React.FC<LiveSearchProps> = ({
                             <p className="text-sm text-gray-500">Đang tìm kiếm...</p>
                         </div>
                     ) : results.length > 0 ? (
-                        <div className="divide-y divide-gray-100">
+                        <ul className="divide-y divide-gray-100 list-none m-0 p-0">
                             {results.map((restaurant) => (
-                                <Link
-                                    key={restaurant.id}
-                                    href={`/quan-an/${restaurant.slug}`}
-                                    onClick={() => setShowDropdown(false)}
-                                    className="flex items-center justify-between p-3 border-b border-gray-100 hover:bg-gray-50 transition-colors w-full cursor-pointer group"
-                                >
-                                    <div className="flex items-center gap-3 flex-1 min-w-0">
-                                        {/* Thumbnail */}
-                                        <div className="relative w-12 h-12 flex-shrink-0 rounded-md overflow-hidden bg-gray-100">
-                                            {restaurant.thumbnail_url ? (
-                                                <Image
-                                                    src={restaurant.thumbnail_url}
-                                                    alt={restaurant.title.rendered}
-                                                    fill
-                                                    className="object-cover"
-                                                />
-                                            ) : (
-                                                <div className="w-full h-full flex items-center justify-center text-xl bg-gray-100">
-                                                    🍽️
+                                <li key={restaurant.id} className="flex flex-row items-center justify-between w-full hover:bg-gray-50 transition-colors">
+                                    <Link
+                                        href={`/quan-an/${restaurant.slug}`}
+                                        onClick={() => setShowDropdown(false)}
+                                        className="flex flex-row items-center justify-between w-full p-3 cursor-pointer group"
+                                    >
+                                        {/* Khối Ảnh + Text (Ép căn trái tuyệt đối) */}
+                                        <div className="flex items-center gap-3 max-w-[80%] w-full">
+                                            {/* Avatar/Thumbnail */}
+                                            <div className="w-12 h-12 flex-shrink-0 bg-gray-100 rounded-md overflow-hidden flex items-center justify-center relative">
+                                                {restaurant.thumbnail_url ? (
+                                                    <Image
+                                                        src={restaurant.thumbnail_url}
+                                                        alt={restaurant.title.rendered}
+                                                        fill
+                                                        className="object-cover"
+                                                    />
+                                                ) : (
+                                                    <span className="text-xl">🍽️</span>
+                                                )}
+                                            </div>
+
+                                            {/* Text Container - BẮT BUỘC text-left và items-start */}
+                                            <div className="flex flex-col items-start justify-center text-left w-full overflow-hidden">
+                                                <span className="font-semibold text-gray-800 text-sm md:text-base truncate w-full block text-left group-hover:text-orange-600 transition-colors">
+                                                    {restaurant.title.rendered}
+                                                </span>
+                                                <span className="text-xs md:text-sm text-gray-500 truncate w-full block text-left">
+                                                    📍 {restaurant.address || 'Cần Giuộc'}
+                                                </span>
+                                            </div>
+                                        </div>
+
+                                        {/* Khối Rating (Ép căn phải) */}
+                                        <div className="flex-shrink-0 ml-2">
+                                            {restaurant.average_rating && (
+                                                <div className="bg-orange-500 text-white px-2 py-1 rounded-lg font-bold text-xs flex items-center gap-1">
+                                                    <span>⭐</span>
+                                                    <span>{restaurant.average_rating}</span>
                                                 </div>
                                             )}
                                         </div>
-
-                                        {/* Info */}
-                                        <div className="flex flex-col items-start flex-1 min-w-0">
-                                            <h4 className="font-semibold text-gray-800 text-sm md:text-base truncate w-full group-hover:text-orange-600 transition-colors">
-                                                {restaurant.title.rendered}
-                                            </h4>
-                                            <p className="text-xs md:text-sm text-gray-500 truncate w-full">
-                                                📍 {restaurant.address || 'Cần Giuộc'}
-                                            </p>
-                                        </div>
-                                    </div>
-
-                                    {/* Rating */}
-                                    {restaurant.average_rating && (
-                                        <div className="flex-shrink-0 ml-2 bg-orange-500 text-white px-2 py-1 rounded-lg font-bold text-xs flex items-center gap-1">
-                                            <span>⭐</span>
-                                            <span>{restaurant.average_rating}</span>
-                                        </div>
-                                    )}
-                                </Link>
+                                    </Link>
+                                </li>
                             ))}
 
                             {/* View All Link */}
@@ -239,7 +241,7 @@ export const LiveSearch: React.FC<LiveSearchProps> = ({
                                     Xem tất cả {results.length} kết quả cho "{keyword}" →
                                 </Link>
                             </div>
-                        </div>
+                        </ul>
                     ) : (
                         <div className="p-6 text-center">
                             <p className="text-2xl mb-2">😔</p>
