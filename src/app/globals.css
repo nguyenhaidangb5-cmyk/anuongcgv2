@@ -25,3 +25,5 @@ body {
   color: var(--foreground);
   font-family: var(--font-plus-jakarta-sans), sans-serif;
 }
+/* Trigger Vercel Build */
+
