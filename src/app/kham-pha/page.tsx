@@ -493,6 +493,8 @@ function ExplorePageContent() {
                                     { value: 'quan-nhau', label: '🍻 Quán nhậu' },
                                     { value: 'com-mon-nuoc', label: '🍚 Cơm' },
                                     { value: 'do-an-vat', label: '🍢 Đồ ăn vặt' },
+                                    { value: 'lau-nuong', label: '🍲 Lẩu & Nướng' },
+                                    { value: 'hai-san', label: '🦞 Hải Sản' },
                                     { value: 'dac-san-dia-phuong', label: '🎁 Đặc sản địa phương' },
                                     { value: 'mon-chay', label: '🥦 Món chay' },
                                     { value: 'tra-sua-cafe', label: '🥤 Trà sữa/Cafe' }
@@ -718,6 +720,8 @@ function ExplorePageContent() {
                                         { value: 'quan-nhau', label: '🍻 Nhậu' },
                                         { value: 'com-mon-nuoc', label: '🍚 Cơm' },
                                         { value: 'do-an-vat', label: '🍢 Ăn vặt' },
+                                        { value: 'lau-nuong', label: '🍲 Lẩu & Nướng' },
+                                        { value: 'hai-san', label: '🦞 Hải Sản' },
                                         { value: 'tra-sua-cafe', label: '🥤 Cafe' },
                                         { value: 'mon-chay', label: '🥦 Chay' },
                                         { value: 'dac-san-dia-phuong', label: '🎁 Đặc sản' }
