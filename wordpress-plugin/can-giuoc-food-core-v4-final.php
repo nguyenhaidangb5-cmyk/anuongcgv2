@@ -68,6 +68,10 @@ class Can_Giuoc_Food_Core
         // Ngăn WordPress tự tạo thêm bản scale-down 2560px cho ảnh gốc lớn hơn ngưỡng này.
         // false = tắt hoàn toàn tính năng big_image_size_threshold.
         add_filter('big_image_size_threshold', '__return_false');
+
+        // --- 15. STORAGE CLEANUP TOOL ---
+        // Công cụ dọn dẹp ảnh resize thừa, hiển thị trong wp-admin.
+        add_action('admin_menu', array($this, 'register_storage_cleanup_menu'));
     }
 
     /**
@@ -2821,6 +2825,262 @@ class Can_Giuoc_Food_Core
 
         return $attachment_id;
     }
+
+    // =====================================================================
+    // 15. STORAGE CLEANUP TOOL
+    // Công cụ dọn dẹp ảnh resize thừa trong wp-content/uploads
+    // Chỉ nhắm vào các file có hậu tố -WIDTHxHEIGHT (pattern của WordPress)
+    // Không đụng đến ảnh gốc, không đụng đến data Meta Box
+    // =====================================================================
+
+    /**
+     * Đăng ký menu "🧹 Dọn Storage" trong WP Admin
+     */
+    public function register_storage_cleanup_menu()
+    {
+        add_submenu_page(
+            'upload.php',                         // Nằm dưới menu Media
+            '🧹 Dọn Storage Uploads',             // Tiêu đề trang
+            '🧹 Dọn Storage',                     // Tên hiển thị trên menu
+            'manage_options',                     // Chỉ Admin mới thấy
+            'cg-storage-cleanup',                 // Slug
+            array($this, 'render_storage_cleanup_page') // Callback
+        );
+    }
+
+    /**
+     * Render trang công cụ dọn dẹp
+     */
+    public function render_storage_cleanup_page()
+    {
+        if (!current_user_can('manage_options')) {
+            wp_die('Bạn không có quyền truy cập trang này.');
+        }
+
+        // Xử lý hành động xóa nếu được POST
+        $delete_result = null;
+        if (
+            isset($_POST['cg_delete_resized']) &&
+            isset($_POST['cg_cleanup_nonce']) &&
+            wp_verify_nonce($_POST['cg_cleanup_nonce'], 'cg_delete_resized_action')
+        ) {
+            $delete_result = $this->handle_delete_resized_images();
+        }
+
+        // --- Quét thư mục uploads ---
+        $uploads_dir = wp_upload_dir();
+        $base_path = $uploads_dir['basedir'];
+        $image_exts = array('jpg', 'jpeg', 'png', 'gif', 'webp', 'avif');
+        // Pattern: filename-WIDTHxHEIGHT.ext
+        $resized_pattern = '/-\d+x\d+\.(' . implode('|', $image_exts) . ')$/i';
+
+        $resized_files = array();
+        $total_size = 0;
+        $original_count = 0;
+        $original_size = 0;
+
+        try {
+            $iterator = new RecursiveIteratorIterator(
+                new RecursiveDirectoryIterator($base_path, FilesystemIterator::SKIP_DOTS)
+            );
+            foreach ($iterator as $file) {
+                if (!$file->isFile())
+                    continue;
+                $fname = $file->getFilename();
+                $ext = strtolower($file->getExtension());
+                $size = $file->getSize();
+
+                if (preg_match($resized_pattern, $fname)) {
+                    $resized_files[] = array(
+                        'path' => $file->getPathname(),
+                        'name' => $fname,
+                        'size' => $size,
+                        'rel' => str_replace($base_path, '', $file->getPathname()),
+                    );
+                    $total_size += $size;
+                } elseif (in_array($ext, $image_exts)) {
+                    $original_count++;
+                    $original_size += $size;
+                }
+            }
+        } catch (Exception $e) {
+            // Bỏ qua thư mục không có quyền truy cập
+        }
+
+        $resized_count = count($resized_files);
+        $savings_pct = ($original_size + $total_size) > 0
+            ? round(($total_size / ($original_size + $total_size)) * 100, 1)
+            : 0;
+
+        // Sắp xếp theo size giảm dần
+        usort($resized_files, function ($a, $b) {
+            return $b['size'] - $a['size'];
+        });
+
+        $format = function (int $bytes): string {
+            if ($bytes <= 0)
+                return '0 B';
+            $u = ['B', 'KB', 'MB', 'GB'];
+            $p = min(floor(log($bytes, 1024)), count($u) - 1);
+            return round($bytes / (1024 ** $p), 2) . ' ' . $u[$p];
+        };
+
+        ?>
+                <div class="wrap" style="max-width:1000px">
+                    <h1 style="display:flex;align-items:center;gap:10px">🧹 Dọn Storage — Ảnh Resize Thừa</h1>
+                    <p style="color:#666;margin-top:-8px">Chỉ xóa bản resize tự sinh (pattern <code>-WxH</code>). Ảnh gốc &amp; Meta Box data <strong style="color:green">không bị ảnh hưởng</strong>.</p>
+
+                    <?php if ($delete_result !== null): ?>
+                        <div class="notice notice-<?= $delete_result['success'] ? 'success' : 'error' ?> is-dismissible" style="padding:12px 16px;margin:16px 0">
+                            <?php if ($delete_result['success']): ?>
+                                    <p>✅ <strong>Dọn dẹp hoàn tất!</strong> Đã xóa <strong><?= $delete_result['deleted'] ?></strong> file,
+                                    giải phóng <strong><?= $format($delete_result['freed']) ?></strong> dung lượng.
+                                    <?php if ($delete_result['errors'] > 0): ?>
+                                            (<?= $delete_result['errors'] ?> file không thể xóa do thiếu quyền)
+                                    <?php endif; ?>
+                                    </p>
+                            <?php else: ?>
+                                    <p>❌ Lỗi xác thực. Vui lòng thử lại.</p>
+                            <?php endif; ?>
+                        </div>
+                    <?php endif; ?>
+
+                    <!-- Stats tổng quan -->
+                    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:20px 0">
+                        <?php
+                        $cards = array(
+                            array('🖼️', 'Ảnh gốc', $original_count . ' files', $format($original_size), '#2563eb'),
+                            array('🗑️', 'Bản resize thừa', $resized_count . ' files', $format($total_size), '#dc2626'),
+                            array('💾', 'Có thể tiết kiệm', $savings_pct . '% uploads', $format($total_size), '#16a34a'),
+                            array('📁', 'Thư mục quét', 'wp-content/uploads', 'All recursive', '#7c3aed'),
+                        );
+                        foreach ($cards as $c): ?>
+                            <div style="background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:16px">
+                                <div style="font-size:22px;margin-bottom:4px"><?= $c[0] ?></div>
+                                <div style="font-size:11px;color:#9ca3af;text-transform:uppercase;letter-spacing:.04em"><?= $c[1] ?></div>
+                                <div style="font-size:20px;font-weight:700;color:<?= $c[4] ?>;margin:4px 0"><?= $c[3] ?></div>
+                                <div style="font-size:12px;color:#6b7280"><?= $c[2] ?></div>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+
+                    <?php if ($resized_count > 0): ?>
+                        <!-- Form xóa -->
+                        <div style="background:#fef2f2;border:2px solid #fca5a5;border-radius:10px;padding:20px;margin-bottom:20px">
+                            <h3 style="color:#dc2626;margin:0 0 8px">⚠️ Xác nhận xóa <?= $resized_count ?> file resize thừa (<?= $format($total_size) ?>)</h3>
+                            <p style="margin:0 0 14px;color:#6b7280;font-size:13px">
+                                Hành động này <strong>sẽ xóa vĩnh viễn</strong> các file ảnh có hậu tố <code>-WIDTHxHEIGHT</code> khỏi server.<br>
+                                Ảnh gốc và mọi dữ liệu quán ăn (Meta Box) <strong style="color:green">sẽ được giữ nguyên hoàn toàn</strong>.<br>
+                                Giao diện website frontend sẽ <strong>không bị ảnh hưởng</strong> vì Next.js frontend của bạn luôn dùng ảnh gốc qua URL.
+                            </p>
+                            <form method="post">
+                                <?php wp_nonce_field('cg_delete_resized_action', 'cg_cleanup_nonce'); ?>
+                                <button type="submit" name="cg_delete_resized" value="1"
+                                    style="background:#dc2626;color:#fff;border:none;padding:10px 24px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer"
+                                    onclick="return confirm('Bạn chắc chắn muốn xóa <?= $resized_count ?> file resize thừa?\n\nẢnh GỐC sẽ được GIỮ NGUYÊN.\nChỉ các bản thumbnail sinh tự động bị xóa.')">
+                                    🗑️ Xóa tất cả <?= $resized_count ?> file resize thừa (giải phóng <?= $format($total_size) ?>)
+                                </button>
+                            </form>
+                        </div>
+
+                        <!-- Danh sách file resize -->
+                        <div style="background:#fff;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden">
+                            <div style="padding:14px 16px;background:#f9fafb;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center">
+                                <strong>📋 Danh sách file cần xóa (TOP 50 nặng nhất)</strong>
+                                <span style="font-size:12px;color:#9ca3af">Tổng: <?= $resized_count ?> files</span>
+                            </div>
+                            <table style="width:100%;border-collapse:collapse">
+                                <thead>
+                                    <tr style="background:#f3f4f6;font-size:11px;color:#6b7280;text-transform:uppercase">
+                                        <th style="padding:8px 14px;text-align:left">#</th>
+                                        <th style="padding:8px 14px;text-align:left">Tên file</th>
+                                        <th style="padding:8px 14px;text-align:left">Đường dẫn</th>
+                                        <th style="padding:8px 14px;text-align:right">Kích thước</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php
+                                    $top50 = array_slice($resized_files, 0, 50);
+                                    foreach ($top50 as $i => $f):
+                                        $mb = $f['size'] / 1024 / 1024;
+                                        $color = $mb >= 1 ? '#dc2626' : ($mb >= 0.1 ? '#d97706' : '#16a34a');
+                                        ?>
+                                        <tr style="border-bottom:1px solid #f3f4f6">
+                                            <td style="padding:8px 14px;color:#9ca3af;font-size:12px"><?= $i + 1 ?></td>
+                                            <td style="padding:8px 14px;font-family:monospace;font-size:12px;color:#1d4ed8"><?= esc_html($f['name']) ?></td>
+                                            <td style="padding:8px 14px;font-size:11px;color:#9ca3af;word-break:break-all">/uploads<?= esc_html(dirname($f['rel'])) ?></td>
+                                            <td style="padding:8px 14px;text-align:right">
+                                                <span style="background:<?= $color ?>;color:#fff;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600"><?= $format($f['size']) ?></span>
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                    <?php if ($resized_count > 50): ?>
+                                        <tr><td colspan="4" style="padding:12px 14px;text-align:center;color:#9ca3af;font-size:12px">
+                                            ... và <?= $resized_count - 50 ?> file khác (không hiển thị hết) — Tất cả sẽ được xóa khi nhấn nút bên trên.
+                                        </td></tr>
+                                    <?php endif; ?>
+                                </tbody>
+                            </table>
+                        </div>
+
+                    <?php else: ?>
+                        <div style="background:#f0fdf4;border:2px solid #86efac;border-radius:10px;padding:30px;text-align:center">
+                            <div style="font-size:48px;margin-bottom:10px">✅</div>
+                            <h2 style="color:#16a34a">Storage đã sạch!</h2>
+                            <p style="color:#166534">Không tìm thấy file ảnh resize thừa nào trong wp-content/uploads.</p>
+                        </div>
+                    <?php endif; ?>
+                </div>
+                <?php
+    }
+
+    /**
+     * Xử lý logic xóa các file resize thừa
+     * Chỉ xóa file có pattern: filename-WIDTHxHEIGHT.ext
+     * Tuyệt đối không đụng ảnh gốc
+     *
+     * @return array Kết quả xóa: ['success', 'deleted', 'freed', 'errors']
+     */
+    private function handle_delete_resized_images(): array
+    {
+        $uploads_dir = wp_upload_dir();
+        $base_path = $uploads_dir['basedir'];
+        $image_exts = array('jpg', 'jpeg', 'png', 'gif', 'webp', 'avif');
+        $resized_pattern = '/-\d+x\d+\.(' . implode('|', $image_exts) . ')$/i';
+
+        $deleted = 0;
+        $errors = 0;
+        $freed = 0;
+
+        try {
+            $iterator = new RecursiveIteratorIterator(
+                new RecursiveDirectoryIterator($base_path, FilesystemIterator::SKIP_DOTS)
+            );
+            foreach ($iterator as $file) {
+                if (!$file->isFile())
+                    continue;
+                if (!preg_match($resized_pattern, $file->getFilename()))
+                    continue;
+
+                $file_size = $file->getSize();
+                if (@unlink($file->getPathname())) {
+                    $deleted++;
+                    $freed += $file_size;
+                } else {
+                    $errors++;
+                }
+            }
+        } catch (Exception $e) {
+            $errors++;
+        }
+
+        return array(
+            'success' => true,
+            'deleted' => $deleted,
+            'freed' => $freed,
+            'errors' => $errors,
+        );
+    }
 }
 
 // Khởi tạo plugin
@@ -2935,16 +3195,16 @@ add_action('admin_head', function () {
     if (!$screen || $screen->post_type !== 'quan_an')
         return;
     ?>
-    <style>
-        /* Ẩn checkbox "Ghim bài viết / Stick to the top of the blog" */
-        #sticky-span,
-        label[for="sticky"],
-        .misc-pub-sticky,
-        #visibility-checkbox-sticky {
-            display: none !important;
-        }
-    </style>
-    <?php
+        <style>
+            /* Ẩn checkbox "Ghim bài viết / Stick to the top of the blog" */
+            #sticky-span,
+            label[for="sticky"],
+            .misc-pub-sticky,
+            #visibility-checkbox-sticky {
+                display: none !important;
+            }
+        </style>
+        <?php
 });
 
 
