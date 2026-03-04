@@ -59,6 +59,33 @@ class Can_Giuoc_Food_Core
         // --- 13. BLOG POST SEEDING ---
         // Dùng wp_loaded thay vì init để đảm bảo user auth và headers sẵn sàng
         add_action('wp_loaded', array($this, 'generate_sample_blog_posts'));
+
+        // --- 14. STORAGE OPTIMIZER: Tắt image sizes thừa ---
+        // WordPress mặc định tạo 6-7 bản sao mỗi ảnh (medium, medium_large, large, 1536x1536, 2048x2048...).
+        // Filter này chỉ giữ lại thumbnail (150x150 cho admin) và full (bản gốc đã tối ưu).
+        add_filter('intermediate_image_sizes_advanced', array($this, 'disable_unnecessary_image_sizes'));
+
+        // Ngăn WordPress tự tạo thêm bản scale-down 2560px cho ảnh gốc lớn hơn ngưỡng này.
+        // false = tắt hoàn toàn tính năng big_image_size_threshold.
+        add_filter('big_image_size_threshold', '__return_false');
+    }
+
+    /**
+     * 14. STORAGE OPTIMIZER: Vô hiệu hóa các kích thước ảnh trung gian không cần thiết.
+     * Chỉ giữ lại 'thumbnail' (dùng trong admin list) và bỏ các size còn lại.
+     * Ảnh full-size (bản gốc) luôn được giữ và không bị ảnh hưởng.
+     *
+     * @param array $sizes Mảng các kích thước ảnh mà WordPress sẽ tạo.
+     * @return array Mảng đã được lọc, chỉ còn thumbnail.
+     */
+    public function disable_unnecessary_image_sizes($sizes)
+    {
+        // Danh sách các kích thước cần tắt
+        $sizes_to_disable = array('medium', 'medium_large', 'large', '1536x1536', '2048x2048');
+        foreach ($sizes_to_disable as $size) {
+            unset($sizes[$size]);
+        }
+        return $sizes;
     }
 
     /**
