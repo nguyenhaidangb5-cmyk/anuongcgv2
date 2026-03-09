@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import Fuse from 'fuse.js';
 import { Navbar } from '@/components/Navbar';
 import { RestaurantCard } from '@/components/RestaurantCard';
@@ -9,6 +9,8 @@ import { fetchRestaurantsWithPagination } from '@/lib/api';
 import { normalizeVietnameseString } from '@/lib/vietnamese-utils';
 
 import { Suspense } from 'react';
+
+const PER_PAGE = 18;
 
 function ExplorePageContent() {
     const searchParams = useSearchParams();
@@ -40,6 +42,9 @@ function ExplorePageContent() {
     const [isNew, setIsNew] = useState(false);
     const [sortBy, setSortBy] = useState<string>(initialSort || 'newest');
     const [searchKeyword, setSearchKeyword] = useState(initialSearch || '');
+
+    // Ref cho sentinel element (phần tử mồi ở cuối danh sách để trigger infinite scroll)
+    const sentinelRef = useRef<HTMLDivElement>(null);
 
     // Fuse.js cho client-side search (cùng config với LiveSearch)
     const fuse = useMemo(() => {
@@ -90,6 +95,26 @@ function ExplorePageContent() {
         return results;
     }, [searchKeyword, allRestaurants, fuse, pagedRestaurants]);
 
+    // Helper functions for sorting
+    const getSortOrderBy = (sort: string): 'date' | 'rating' | 'view_count' | undefined => {
+        switch (sort) {
+            case 'newest':
+            case 'oldest':
+                return 'date';
+            case 'rating':
+                return 'rating';
+            case 'popular':
+                return 'view_count';
+            default:
+                return 'date';
+        }
+    };
+
+    const getSortOrder = (sort: string): 'asc' | 'desc' => {
+        if (sort === 'oldest') return 'asc';
+        return 'desc';
+    };
+
     // Fetch ALL restaurants (cho search client-side)
     useEffect(() => {
         async function loadAll() {
@@ -102,10 +127,10 @@ function ExplorePageContent() {
                 setAllRestaurants(data);
                 // Nếu không có search, dùng luôn làm paged
                 if (!searchKeyword.trim()) {
-                    setPagedRestaurants(data.slice(0, 20));
+                    setPagedRestaurants(data.slice(0, PER_PAGE));
                     setTotalRestaurants(total);
-                    setTotalPages(Math.ceil(total / 20));
-                    setHasMore(total > 20);
+                    setTotalPages(Math.ceil(total / PER_PAGE));
+                    setHasMore(total > PER_PAGE);
                 } else {
                     setTotalRestaurants(0); // sẽ tính lại từ searchedRestaurants
                     setHasMore(false);
@@ -128,7 +153,7 @@ function ExplorePageContent() {
             setCurrentPage(1);
             try {
                 const { restaurants: data, total, totalPages: pages } = await fetchRestaurantsWithPagination({
-                    per_page: 20,
+                    per_page: PER_PAGE,
                     page: 1,
                     orderby: getSortOrderBy(sortBy),
                     order: getSortOrder(sortBy)
@@ -146,35 +171,15 @@ function ExplorePageContent() {
         fetchData();
     }, [sortBy]);
 
-    // Helper functions for sorting
-    const getSortOrderBy = (sort: string): 'date' | 'rating' | 'view_count' | undefined => {
-        switch (sort) {
-            case 'newest':
-            case 'oldest':
-                return 'date';
-            case 'rating':
-                return 'rating';
-            case 'popular':
-                return 'view_count';
-            default:
-                return 'date';
-        }
-    };
-
-    const getSortOrder = (sort: string): 'asc' | 'desc' => {
-        if (sort === 'oldest') return 'asc';
-        return 'desc';
-    };
-
-    // Load more (chỉ áp dụng khi không có search, dùng phân trang từ API)
-    const loadMoreRestaurants = async () => {
+    // Load more — bọc bằng useCallback để giữ tham chiếu ổn định cho IntersectionObserver
+    const loadMoreRestaurants = useCallback(async () => {
         if (loadingMore || !hasMore || searchKeyword.trim()) return;
 
         setLoadingMore(true);
         try {
             const nextPage = currentPage + 1;
             const { restaurants: data } = await fetchRestaurantsWithPagination({
-                per_page: 20,
+                per_page: PER_PAGE,
                 page: nextPage,
                 orderby: getSortOrderBy(sortBy),
                 order: getSortOrder(sortBy)
@@ -187,7 +192,34 @@ function ExplorePageContent() {
         } finally {
             setLoadingMore(false);
         }
-    };
+    }, [loadingMore, hasMore, searchKeyword, currentPage, totalPages, sortBy]);
+
+    // Infinite Scroll: IntersectionObserver theo dõi sentinel element
+    useEffect(() => {
+        const sentinel = sentinelRef.current;
+        if (!sentinel) return;
+
+        const observer = new IntersectionObserver(
+            (entries) => {
+                if (entries[0].isIntersecting) {
+                    loadMoreRestaurants();
+                }
+            },
+            {
+                // Trigger sớm 200px trước khi sentinel chạm đáy viewport
+                // → loading bắt đầu ngầm, người dùng không thấy khoảng trắng
+                rootMargin: '200px',
+            }
+        );
+
+        observer.observe(sentinel);
+
+        // Cleanup: disconnect khi component unmount hoặc dependencies thay đổi
+        // → Không bị memory leak
+        return () => {
+            observer.disconnect();
+        };
+    }, [loadMoreRestaurants]);
 
     // Đồng bộ URL params với filter state
     useEffect(() => {
@@ -538,7 +570,7 @@ function ExplorePageContent() {
                             className="lg:hidden w-full bg-orange-500 text-white font-bold py-3 rounded-xl mb-4 flex items-center justify-center gap-2 shadow-lg shadow-orange-200"
                         >
                             <span>🔍</span>
-                            <span>Bộ lọc & Tìm kiếm</span>
+                            <span>Bộ lọc &amp; Tìm kiếm</span>
                         </button>
 
                         {/* Sort & Results */}
@@ -572,28 +604,19 @@ function ExplorePageContent() {
                                     ))}
                                 </div>
 
-                                {/* Load More Button */}
-                                {hasMore && (
-                                    <div className="mt-8 flex justify-center">
-                                        <button
-                                            onClick={loadMoreRestaurants}
-                                            disabled={loadingMore}
-                                            className="bg-orange-500 hover:bg-orange-600 disabled:bg-gray-300 text-white font-bold py-3 px-8 rounded-xl transition-all shadow-lg shadow-orange-200 disabled:shadow-none flex items-center gap-2"
-                                        >
-                                            {loadingMore ? (
-                                                <>
-                                                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                                                    <span>Đang tải...</span>
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <span>📋</span>
-                                                    <span>Xem thêm ({totalRestaurants - filteredRestaurants.length} quán)</span>
-                                                </>
-                                            )}
-                                        </button>
-                                    </div>
-                                )}
+                                {/*
+                                  Sentinel element — IntersectionObserver theo dõi phần tử này.
+                                  Khi nó xuất hiện trong viewport (+ 200px rootMargin),
+                                  observer sẽ tự động gọi loadMoreRestaurants().
+                                  Spinner chỉ hiện khi đang loadingMore.
+                                  Khi đã hết quán (hasMore = false), sentinel vẫn tồn tại
+                                  nhưng observer không làm gì (do điều kiện trong useCallback).
+                                */}
+                                <div ref={sentinelRef} className="mt-8 flex justify-center min-h-[48px] items-center">
+                                    {loadingMore && (
+                                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500" />
+                                    )}
+                                </div>
                             </>
                         ) : (
                             <div className="text-center py-20">
