@@ -115,35 +115,22 @@ function ExplorePageContent() {
         return 'desc';
     };
 
-    // Fetch ALL restaurants (cho search client-side)
+    // Fetch ALL restaurants — chỉ dùng cho client-side search (Fuse.js)
+    // Không được setPagedRestaurants ở đây để tránh race condition với fetchData()
     useEffect(() => {
         async function loadAll() {
             try {
-                // Fetch toàn bộ, không truyền search param
-                const { restaurants: data, total } = await fetchRestaurantsWithPagination({
+                const { restaurants: data } = await fetchRestaurantsWithPagination({
                     per_page: 200,
                     page: 1,
                 });
                 setAllRestaurants(data);
-                // Nếu không có search, dùng luôn làm paged
-                if (!searchKeyword.trim()) {
-                    setPagedRestaurants(data.slice(0, PER_PAGE));
-                    setTotalRestaurants(total);
-                    setTotalPages(Math.ceil(total / PER_PAGE));
-                    setHasMore(total > PER_PAGE);
-                } else {
-                    setTotalRestaurants(0); // sẽ tính lại từ searchedRestaurants
-                    setHasMore(false);
-                }
             } catch (error) {
                 console.error('Error fetching all restaurants:', error);
-            } finally {
-                setLoading(false);
             }
         }
         loadAll();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [sortBy]);
+    }, []); // Chạy 1 lần duy nhất khi mount — không phụ thuộc sortBy
 
     // Fetch paged restaurants khi không có search + sort thay đổi
     useEffect(() => {
