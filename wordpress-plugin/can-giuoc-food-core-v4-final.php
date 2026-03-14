@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 /**
  * Plugin Name: Cần Giuộc Food Core (v4.0 - Optimized)
  * Description: Plugin tối ưu với Meta Box hợp nhất, API response đầy đủ thumbnail_url và formatted_price
@@ -3259,3 +3259,117 @@ add_filter('intermediate_image_sizes_advanced', function (array $sizes): array {
     // Chỉ còn lại: 'thumbnail' (và bất kỳ custom size nào plugin/theme đăng ký)
     return $sizes;
 });
+
+
+/**
+ * CÔNG CỤ RESET ĐIỂM ĐÁNH GIÁ
+ * Thêm trang admin để reset toàn bộ điểm đánh giá về 0 cho tất cả quán.
+ */
+add_action('admin_menu', function () {
+    add_submenu_page(
+        'edit.php?post_type=quan_an',
+        'Reset Điểm Đánh Giá',
+        '🔄 Reset Đánh Giá',
+        'manage_options',
+        'cg-reset-ratings',
+        'cg_render_reset_ratings_page'
+    );
+});
+
+function cg_render_reset_ratings_page()
+{
+    if (!current_user_can('manage_options')) {
+        wp_die('Bạn không có quyền truy cập trang này.');
+    }
+
+    $result_message = '';
+    $result_type    = '';
+
+    // Xử lý khi form được submit
+    if (
+        isset($_POST['cg_do_reset_ratings']) &&
+        isset($_POST['cg_reset_ratings_nonce']) &&
+        wp_verify_nonce($_POST['cg_reset_ratings_nonce'], 'cg_reset_ratings_action')
+    ) {
+        $rating_keys = [
+            '_cg_rating_food',
+            '_cg_rating_price',
+            '_cg_rating_service',
+            '_cg_rating_ambiance',
+            '_cg_average_rating',
+        ];
+
+        // Lấy TẤT CẢ post ID của quan_an (bao gồm cả draft, publish...)
+        $all_posts = get_posts([
+            'post_type'      => 'quan_an',
+            'post_status'    => ['publish', 'draft', 'private', 'pending'],
+            'posts_per_page' => -1,
+            'fields'         => 'ids',
+        ]);
+
+        $count = 0;
+        foreach ($all_posts as $post_id) {
+            foreach ($rating_keys as $key) {
+                update_post_meta($post_id, $key, 0);
+            }
+            $count++;
+        }
+
+        $result_message = "✅ Đã reset điểm đánh giá về 0 thành công cho <strong>{$count}</strong> quán ăn.";
+        $result_type    = 'success';
+    }
+
+    // Đếm số quán hiện tại
+    $total_count = wp_count_posts('quan_an');
+    $total       = ($total_count->publish ?? 0) + ($total_count->draft ?? 0) + ($total_count->private ?? 0) + ($total_count->pending ?? 0);
+    ?>
+    <div class="wrap">
+        <h1>🔄 Reset Điểm Đánh Giá Quán Ăn</h1>
+
+        <?php if ($result_message): ?>
+            <div class="notice notice-<?php echo $result_type === 'success' ? 'success' : 'error'; ?> is-dismissible">
+                <p><?php echo $result_message; ?></p>
+            </div>
+        <?php endif; ?>
+
+        <div style="background:#fff; border:1px solid #c3c4c7; border-radius:4px; padding:24px; max-width:600px; margin-top:20px;">
+            <h2 style="margin-top:0;">Thông tin</h2>
+            <table class="widefat" style="margin-bottom:20px;">
+                <tbody>
+                    <tr>
+                        <td><strong>Tổng số quán ăn</strong></td>
+                        <td><?php echo $total; ?> quán</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Các field sẽ reset về 0</strong></td>
+                        <td>
+                            Chất lượng (<code>_cg_rating_food</code>)<br>
+                            Giá cả (<code>_cg_rating_price</code>)<br>
+                            Phục vụ (<code>_cg_rating_service</code>)<br>
+                            Không gian (<code>_cg_rating_ambiance</code>)<br>
+                            Điểm trung bình (<code>_cg_average_rating</code>)
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div style="background:#fff3cd; border:1px solid #ffc107; border-radius:4px; padding:12px 16px; margin-bottom:20px;">
+                ⚠️ <strong>Lưu ý:</strong> Thao tác này sẽ <strong>xóa toàn bộ điểm đánh giá</strong> của tất cả <?php echo $total; ?> quán
+                và không thể hoàn tác tự động. Hãy chắc chắn trước khi thực hiện.
+            </div>
+
+            <form method="post">
+                <?php wp_nonce_field('cg_reset_ratings_action', 'cg_reset_ratings_nonce'); ?>
+                <input
+                    type="submit"
+                    name="cg_do_reset_ratings"
+                    class="button button-primary button-large"
+                    value="🔄 Reset tất cả điểm đánh giá về 0"
+                    onclick="return confirm('Bạn có chắc muốn reset điểm đánh giá của TẤT CẢ <?php echo $total; ?> quán về 0 không? Thao tác này không thể hoàn tác!');"
+                    style="background:#d63638; border-color:#d63638;"
+                />
+            </form>
+        </div>
+    </div>
+    <?php
+}
