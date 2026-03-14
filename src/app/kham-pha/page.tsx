@@ -67,10 +67,26 @@ function ExplorePageContent() {
         });
     }, [allRestaurants]);
 
-    // Danh sách hiển thị: nếu có search → filter client-side, không thì dùng paged
+    // Danh sách hiển thị:
+    // - Có keyword search → Fuse.js trên allRestaurants
+    // - Có filter active → filter trên allRestaurants (FULL dataset)
+    // - Không có gì → dùng pagedRestaurants (infinite scroll)
+    const baseRestaurantsForFilter = useMemo(() => {
+        const hasFilters =
+            selectedRegions.length > 0 ||
+            selectedPriceRanges.length > 0 ||
+            selectedRatings.length > 0 ||
+            selectedServices.length > 0 ||
+            selectedFoodTypes.length > 0 ||
+            isNew;
+
+        if (hasFilters) return allRestaurants; // dùng TOÀN BỘ khi lọc
+        return pagedRestaurants;               // dùng paged khi chỉ scroll
+    }, [selectedRegions, selectedPriceRanges, selectedRatings, selectedServices, selectedFoodTypes, isNew, allRestaurants, pagedRestaurants]);
+
     const searchedRestaurants = useMemo(() => {
         if (!searchKeyword.trim() || searchKeyword.trim().length < 2) {
-            return pagedRestaurants; // Không search → dùng paged list từ API
+            return baseRestaurantsForFilter;
         }
         if (allRestaurants.length === 0) return [];
 
@@ -93,7 +109,8 @@ function ExplorePageContent() {
         }
 
         return results;
-    }, [searchKeyword, allRestaurants, fuse, pagedRestaurants]);
+    }, [searchKeyword, allRestaurants, fuse, baseRestaurantsForFilter]);
+
 
     // Helper functions for sorting
     const getSortOrderBy = (sort: string): 'date' | 'rating' | 'view_count' | undefined => {
