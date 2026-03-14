@@ -503,7 +503,7 @@ function ExplorePageContent() {
                                 {[
                                     { value: 'has_ac', label: '❄️ Có máy lạnh' },
                                     { value: 'free_parking', label: '🛵 Giữ xe miễn phí' },
-                                    { value: 'verified', label: '✅ Đã xác thực' },
+                                    { value: 'verified', label: '👑 Admin Đề Xuất' },
                                     { value: 'family_friendly', label: '👨‍👩‍👧‍👦 Phù hợp gia đình' },
                                     { value: 'nice_view', label: '📸 View đẹp' },
                                     { value: 'trending', label: '🔥 Đang hot' }
@@ -725,7 +725,7 @@ function ExplorePageContent() {
                                     {[
                                         { value: 'has_ac', label: '❄️ Máy lạnh' },
                                         { value: 'free_parking', label: '🛵 Giữ xe' },
-                                        { value: 'verified', label: '✅ Xác thực' },
+                                        { value: 'verified', label: '👑 Admin Đề Xuất' },
                                         { value: 'trending', label: '🔥 Hot' }
                                     ].map((service) => (
                                         <label key={service.value} className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg">

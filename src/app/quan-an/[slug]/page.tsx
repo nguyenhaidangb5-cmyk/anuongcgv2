@@ -17,10 +17,16 @@ const getBadgeStyle = (label: string) => {
             icon: l.includes('máy lạnh') ? '❄️' : '🌊'
         };
     }
-    if (l.includes('ngon, bổ, rẻ') || l.includes('xác thực')) {
+    if (l.includes('ngon, bổ, rẻ')) {
         return {
             class: 'bg-green-50 text-green-700 border-green-200',
-            icon: l.includes('xác thực') ? '✅' : '💰'
+            icon: '💰'
+        };
+    }
+    if (l.includes('admin đề xuất') || l.includes('xác thực')) {
+        return {
+            class: 'bg-red-600 text-white border-red-700',
+            icon: '👑'
         };
     }
     if (l.includes('địa phương') || l.includes('chuẩn vị')) {
@@ -455,6 +461,15 @@ export default function RestaurantDetailPage() {
                         </button>
                     )}
                 </div>
+
+                {/* Hàng 2: Nút Báo cáo lỗi (mobile only) */}
+                <button
+                    onClick={() => setIsReportModalOpen(true)}
+                    className="w-full mt-2 bg-gray-100 hover:bg-gray-200 text-gray-500 font-medium py-2 rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 text-sm border border-gray-200"
+                >
+                    <span>🚩</span>
+                    <span>Báo cáo thông tin không chính xác</span>
+                </button>
             </div>
 
             {/* Lightbox - Full-screen mobile-optimized Menu/Gallery viewer */}

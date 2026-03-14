@@ -79,7 +79,7 @@ export const BADGE_LABELS: Record<string, { label: string; icon: string }> = {
     has_ac: { label: 'Có máy lạnh', icon: '❄️' },
     local_choice: { label: 'Dân địa phương chọn', icon: '🏠' },
     free_parking: { label: 'Giữ xe miễn phí', icon: '🛵' },
-    verified: { label: 'Đã xác thực', icon: '✅' },
+    verified: { label: 'Admin Đề Xuất', icon: '👑' },
     new_open: { label: 'Quán mới', icon: '🆕' },
     has_alcohol: { label: 'Có bán rượu bia', icon: '🍺' },
     authentic: { label: 'Quán ngon chuẩn vị', icon: '🍜' },

@@ -16,10 +16,10 @@ const getBadgeStyle = (label: string) => {
             icon: l.includes('máy lạnh') ? '❄️' : '🌊'
         };
     }
-    if (l.includes('ngon, bổ, rẻ') || l.includes('xác thực')) {
+    if (l.includes('ngon, bổ, rẻ')) {
         return {
             class: 'bg-green-50 text-green-700 border-green-100',
-            icon: l.includes('xác thực') ? '✅' : '🍃'
+            icon: '🍃'
         };
     }
     if (l.includes('địa phương') || l.includes('chuẩn vị')) {
@@ -107,11 +107,11 @@ export const RestaurantCard: React.FC<RestaurantCardProps> = ({ data }) => {
 
                     {/* Utility Badges */}
                     <div className="flex flex-wrap gap-1 md:gap-1.5">
-                        {/* Verified Badge - Prominent Display */}
+                        {/* Admin Đề Xuất Badge - Prominent Display */}
                         {data.is_verified && (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] md:text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
-                                <span>✓</span>
-                                <span className="hidden md:inline">Đã xác thực</span>
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] md:text-xs font-bold bg-red-600 text-white border border-red-700 shadow-sm">
+                                <span>👑</span>
+                                <span>Admin Đề Xuất</span>
                             </span>
                         )}
 
