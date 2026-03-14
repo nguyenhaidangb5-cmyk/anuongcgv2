@@ -26,6 +26,7 @@ function ExplorePageContent() {
     const [pagedRestaurants, setPagedRestaurants] = useState<Restaurant[]>([]);
     const [loading, setLoading] = useState(true);
     const [loadingMore, setLoadingMore] = useState(false);
+    const [allRestaurantsLoaded, setAllRestaurantsLoaded] = useState(false); // true khi full dataset đã fetch xong
     const [showMobileFilter, setShowMobileFilter] = useState(false);
 
     // Pagination state (chỉ dùng khi không có search keyword)
@@ -144,6 +145,8 @@ function ExplorePageContent() {
                 setAllRestaurants(data);
             } catch (error) {
                 console.error('Error fetching all restaurants:', error);
+            } finally {
+                setAllRestaurantsLoaded(true); // Đánh dấu full dataset đã sẵn sàng
             }
         }
         loadAll();
@@ -595,7 +598,7 @@ function ExplorePageContent() {
                         </div>
 
                         {/* Restaurant Grid */}
-                        {loading ? (
+                        {loading || (hasActiveFilters && !allRestaurantsLoaded) ? (
                             <div className="text-center py-20">
                                 <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-orange-500 mx-auto"></div>
                                 <p className="mt-4 text-gray-600">Đang tải dữ liệu...</p>
