@@ -82,21 +82,39 @@ export default function RestaurantDetailPage() {
     // Init Facebook Comments Plugin safely on the client side
     useEffect(() => {
         if (!data) return;
-        const timer = setTimeout(() => {
-            if (typeof window !== 'undefined') {
-                if ((window as any).FB) {
-                    (window as any).FB.XFBML.parse();
-                } else if (!document.getElementById('facebook-jssdk')) {
-                    const script = document.createElement('script');
-                    script.id = 'facebook-jssdk';
-                    script.src = 'https://connect.facebook.net/vi_VN/sdk.js#xfbml=1&version=v19.0';
-                    script.async = true;
-                    script.defer = true;
-                    script.crossOrigin = 'anonymous';
-                    document.body.appendChild(script);
-                }
+        
+        const initFB = () => {
+            if (typeof window === 'undefined') return;
+
+            // 1. Phải có thẻ fb-root trong body để SDK hoạt động
+            if (!document.getElementById('fb-root')) {
+                const fbRoot = document.createElement('div');
+                fbRoot.id = 'fb-root';
+                document.body.appendChild(fbRoot);
             }
-        }, 100);
+
+            // 2. Chạy hàm parse()
+            if ((window as any).FB) {
+                (window as any).FB.XFBML.parse();
+            } else if (!document.getElementById('facebook-jssdk')) {
+                // Nếu chưa có script thì nhúng vào và chạy parse sau khi load xong
+                const script = document.createElement('script');
+                script.id = 'facebook-jssdk';
+                script.src = 'https://connect.facebook.net/vi_VN/sdk.js#xfbml=1&version=v19.0';
+                script.async = true;
+                script.defer = true;
+                script.crossOrigin = 'anonymous';
+                script.onload = () => {
+                    if ((window as any).FB) {
+                        (window as any).FB.XFBML.parse();
+                    }
+                };
+                document.body.appendChild(script);
+            }
+        };
+
+        // Chờ một chút để React render xong DOM (đặc biệt là cái div fb-comments)
+        const timer = setTimeout(initFB, 300);
         return () => clearTimeout(timer);
     }, [data, slug]);
 
