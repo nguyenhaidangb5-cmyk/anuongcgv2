@@ -79,6 +79,27 @@ export default function RestaurantDetailPage() {
         fetchData();
     }, [slug]);
 
+    // Init Facebook Comments Plugin safely on the client side
+    useEffect(() => {
+        if (!data) return;
+        const timer = setTimeout(() => {
+            if (typeof window !== 'undefined') {
+                if ((window as any).FB) {
+                    (window as any).FB.XFBML.parse();
+                } else if (!document.getElementById('facebook-jssdk')) {
+                    const script = document.createElement('script');
+                    script.id = 'facebook-jssdk';
+                    script.src = 'https://connect.facebook.net/vi_VN/sdk.js#xfbml=1&version=v19.0';
+                    script.async = true;
+                    script.defer = true;
+                    script.crossOrigin = 'anonymous';
+                    document.body.appendChild(script);
+                }
+            }
+        }, 100);
+        return () => clearTimeout(timer);
+    }, [data, slug]);
+
     // Keyboard navigation + body scroll lock for lightbox
     useEffect(() => {
         if (!lightboxOpen) return;
@@ -286,6 +307,28 @@ export default function RestaurantDetailPage() {
                                 icon="🏪"
                             />
                         )}
+
+                        {/* Facebook Comments Section */}
+                        <div className="bg-white rounded-2xl p-4 md:p-6 border border-gray-100 shadow-sm">
+                            <div className="bg-gradient-to-b from-orange-50 to-white border border-orange-100 rounded-xl p-5 md:p-6 mb-6 text-center shadow-sm">
+                                <h3 className="text-gray-900 font-bold text-lg md:text-xl mb-2 flex items-center justify-center gap-2">
+                                    <span>💬</span> Bạn thấy quán này thế nào?
+                                </h3>
+                                <p className="text-gray-600 text-sm md:text-base leading-relaxed max-w-lg mx-auto">
+                                    Chia sẻ cảm nhận và hình ảnh thực tế xuống đây để bà con cùng tham khảo nhé!
+                                </p>
+                            </div>
+                            
+                            <div className="w-full overflow-hidden min-h-[150px]">
+                                {/* Hydration-safe wrapper */}
+                                <div
+                                    className="fb-comments w-full"
+                                    data-href={`https://anuongcangiuoc.org/quan-an/${slug}`}
+                                    data-width="100%"
+                                    data-numposts="5"
+                                ></div>
+                            </div>
+                        </div>
 
                     </div>
 
