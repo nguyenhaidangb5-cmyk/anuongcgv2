@@ -64,6 +64,7 @@ export default function RestaurantDetailPage() {
     const [data, setData] = useState<Restaurant | null>(null);
     const [loading, setLoading] = useState(true);
     const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+    const [isMounted, setIsMounted] = useState(false);
     const [lightboxOpen, setLightboxOpen] = useState(false);
     const [lightboxImages, setLightboxImages] = useState<string[]>([]);
     const [lightboxIndex, setLightboxIndex] = useState(0);
@@ -74,6 +75,11 @@ export default function RestaurantDetailPage() {
     const [userRating, setUserRating] = useState<number | null>(null);
     const [isSubmittingRating, setIsSubmittingRating] = useState(false);
     const [fingerprint, setFingerprint] = useState<string | null>(null);
+
+    // Mark client mounted (fixes SSR hydration for disqus-react)
+    useEffect(() => {
+        setIsMounted(true);
+    }, []);
 
     // Lấy FingerprintJS
     useEffect(() => {
@@ -462,7 +468,7 @@ export default function RestaurantDetailPage() {
                             </div>
                             
                             <div className="w-full overflow-hidden min-h-[150px]">
-                                {disqusConfig && (
+                                {isMounted && disqusConfig && (
                                     <DiscussionEmbed
                                         shortname="anuongcangiuoc"
                                         config={disqusConfig}
