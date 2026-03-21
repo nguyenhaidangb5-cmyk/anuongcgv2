@@ -9,6 +9,7 @@ import { fetchRestaurantsWithPagination } from '@/lib/api';
 import { normalizeVietnameseString } from '@/lib/vietnamese-utils';
 import { ref, get } from 'firebase/database';
 import { db } from '@/lib/firebase';
+import { FirebaseRating } from '@/types/firebase';
 
 import { Suspense } from 'react';
 
@@ -22,11 +23,6 @@ function shuffleArray<T>(array: T[]): T[] {
         [arr[i], arr[j]] = [arr[j], arr[i]];
     }
     return arr;
-}
-
-export interface FirebaseRating {
-    totalScore: number;
-    count: number;
 }
 
 function ExplorePageContent() {
@@ -223,12 +219,12 @@ function ExplorePageContent() {
     };
     const getSortOrder = (sort: string): 'asc' | 'desc' => sort === 'oldest' ? 'asc' : 'desc';
 
-    // --- Fetch ALL restaurants (cho Fuse + filter), áp dụng shuffle ---
+    // --- Fetch ALL restaurants (cho Fuse + filter), KHÔNG áp dụng shuffle ---
     useEffect(() => {
         async function loadAll() {
             try {
                 const { restaurants: data } = await fetchRestaurantsWithPagination({ per_page: 200, page: 1 });
-                setAllRestaurants(shuffleArray(data)); // Shuffle mỗi khi load lại trang
+                setAllRestaurants(data); // Bỏ shuffleArray để filter giữ nguyên thứ tự
             } catch (error) {
                 console.error('Error fetching all restaurants:', error);
             } finally {
@@ -250,7 +246,10 @@ function ExplorePageContent() {
                     orderby: getSortOrderBy(sortBy),
                     order: getSortOrder(sortBy)
                 });
-                setPagedRestaurants(data);
+                
+                // Shuffle danh sách ban đầu nếu sort là newer (mặc định)
+                setPagedRestaurants(sortBy === 'newest' ? shuffleArray(data) : data);
+                
                 setTotalRestaurants(total);
                 setTotalPages(pages);
                 setHasMore(pages > 1);
@@ -274,7 +273,9 @@ function ExplorePageContent() {
                 orderby: getSortOrderBy(sortBy),
                 order: getSortOrder(sortBy)
             });
-            setPagedRestaurants(prev => [...prev, ...data]);
+            // Shuffle trang tiếp theo thay vì chỉ nối đuôi nếu sort là newest
+            const processedData = sortBy === 'newest' ? shuffleArray(data) : data;
+            setPagedRestaurants(prev => [...prev, ...processedData]);
             setCurrentPage(nextPage);
             setHasMore(nextPage < totalPages);
         } catch (error) {

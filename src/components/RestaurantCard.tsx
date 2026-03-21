@@ -2,7 +2,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { Restaurant, BADGE_LABELS } from '@/types/wordpress';
-import { FirebaseRating } from '@/app/kham-pha/page';
+import { FirebaseRating } from '@/types/firebase';
 
 interface RestaurantCardProps {
     data: Restaurant;
