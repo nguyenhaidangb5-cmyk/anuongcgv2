@@ -59,8 +59,9 @@ export const RestaurantCard: React.FC<RestaurantCardProps> = ({ data, firebaseRa
         ? (adminRatings.reduce((a, b) => a + b, 0) / adminRatings.length).toFixed(1)
         : null;
 
-    // Hiển thị Firebase rating nếu có, ngược lại dùng admin rating
-    const displayRating = fbAvg || adminAvg;
+    // Hiển thị Firebase rating nếu có, ngược lại dùng admin rating. Nếu không có gì thì hiện 0.0
+    const displayRating = fbAvg || adminAvg || "0.0";
+    const displayCount = fbCount > 0 ? fbCount : 0;
 
     const imageUrl = data.featured_media_url || 'https://placehold.co/600x400?text=No+Image';
     const isClosed = (data as any).is_closed === true;
@@ -85,14 +86,12 @@ export const RestaurantCard: React.FC<RestaurantCardProps> = ({ data, firebaseRa
                     <div className="absolute inset-0 bg-gray-900/30" />
                 )}
 
-                {/* Rating Badge */}
-                {displayRating && (
-                    <div className="absolute bottom-1 right-1 md:top-3 md:right-3 md:bottom-auto bg-white/90 md:bg-orange-500 md:text-white text-orange-600 px-1.5 py-0.5 md:px-2 md:py-1 rounded md:rounded-lg font-bold text-[10px] md:text-xs shadow-sm flex items-center gap-1 backdrop-blur-sm">
-                        <span>★</span>
-                        <span>{displayRating}</span>
-                        {fbCount > 0 && <span className="hidden md:inline opacity-80">({fbCount})</span>}
-                    </div>
-                )}
+                {/* Rating Badge - Luôn hiện đỏ/cam để nổi bật */}
+                <div className="absolute bottom-1 right-1 md:top-3 md:right-3 md:bottom-auto bg-white/90 md:bg-orange-500 md:text-white text-orange-600 px-1.5 py-0.5 md:px-2 md:py-1 rounded md:rounded-lg font-bold text-[10px] md:text-xs shadow-sm flex items-center gap-1 backdrop-blur-sm z-10">
+                    <span>★</span>
+                    <span>{displayRating}</span>
+                    <span className="opacity-80 ml-0.5">({displayCount})</span>
+                </div>
 
                 {/* Badge "ĐÃ ĐÓNG CỬA" */}
                 {isClosed && (
