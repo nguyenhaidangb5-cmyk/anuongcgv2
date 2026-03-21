@@ -37,7 +37,6 @@ function ExplorePageContent() {
 
     const [selectedRegions, setSelectedRegions] = useState<string[]>([]);
     const [selectedPriceRanges, setSelectedPriceRanges] = useState<string[]>([]);
-    const [selectedRatings, setSelectedRatings] = useState<string[]>([]);
     const [selectedServices, setSelectedServices] = useState<string[]>([]);
     const [selectedFoodTypes, setSelectedFoodTypes] = useState<string[]>([]);
     const [isNew, setIsNew] = useState(false);
@@ -76,14 +75,13 @@ function ExplorePageContent() {
         const hasFilters =
             selectedRegions.length > 0 ||
             selectedPriceRanges.length > 0 ||
-            selectedRatings.length > 0 ||
             selectedServices.length > 0 ||
             selectedFoodTypes.length > 0 ||
             isNew;
 
         if (hasFilters) return allRestaurants; // dùng TOÀN BỘ khi lọc
         return pagedRestaurants;               // dùng paged khi chỉ scroll
-    }, [selectedRegions, selectedPriceRanges, selectedRatings, selectedServices, selectedFoodTypes, isNew, allRestaurants, pagedRestaurants]);
+    }, [selectedRegions, selectedPriceRanges, selectedServices, selectedFoodTypes, isNew, allRestaurants, pagedRestaurants]);
 
     const searchedRestaurants = useMemo(() => {
         if (!searchKeyword.trim() || searchKeyword.trim().length < 2) {
@@ -271,29 +269,6 @@ function ExplorePageContent() {
             }
         }
 
-        // Filter by rating
-        if (selectedRatings.length > 0) {
-            const ratings = [
-                Number(restaurant.rating_food || 0),
-                Number(restaurant.rating_price || 0),
-                Number(restaurant.rating_service || 0),
-                Number(restaurant.rating_ambiance || 0),
-            ].filter(r => r > 0);
-
-            const avgRating = ratings.length > 0
-                ? ratings.reduce((a, b) => a + b, 0) / ratings.length
-                : 0;
-
-            const matchesRating = selectedRatings.some(range => {
-                if (range === '9+') return avgRating >= 9;
-                if (range === '8-9') return avgRating >= 8 && avgRating < 9;
-                if (range === '7-8') return avgRating >= 7 && avgRating < 8;
-                return false;
-            });
-
-            if (!matchesRating) return false;
-        }
-
         // Filter by services/badges
         if (selectedServices.length > 0) {
             const matchesService = selectedServices.every(service => {
@@ -362,12 +337,6 @@ function ExplorePageContent() {
         );
     };
 
-    const toggleRating = (rating: string) => {
-        setSelectedRatings(prev =>
-            prev.includes(rating) ? prev.filter(r => r !== rating) : [...prev, rating]
-        );
-    };
-
     const toggleService = (service: string) => {
         setSelectedServices(prev =>
             prev.includes(service) ? prev.filter(s => s !== service) : [...prev, service]
@@ -383,14 +352,13 @@ function ExplorePageContent() {
     const clearAllFilters = () => {
         setSelectedRegions([]);
         setSelectedPriceRanges([]);
-        setSelectedRatings([]);
         setSelectedServices([]);
         setSelectedFoodTypes([]);
         setIsNew(false);
     };
 
     const hasActiveFilters = selectedRegions.length > 0 || selectedPriceRanges.length > 0 ||
-        selectedRatings.length > 0 || selectedServices.length > 0 || selectedFoodTypes.length > 0 || isNew;
+        selectedServices.length > 0 || selectedFoodTypes.length > 0 || isNew;
 
     return (
         <div className="min-h-screen bg-gray-50">
@@ -465,30 +433,6 @@ function ExplorePageContent() {
                                             className="w-4 h-4 text-orange-500 rounded focus:ring-orange-500"
                                         />
                                         <span className="text-sm text-gray-700">{range.label}</span>
-                                    </label>
-                                ))}
-                            </div>
-                        </div>
-
-                        {/* Đánh giá */}
-                        <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-                            <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
-                                <span>⭐</span> Đánh giá
-                            </h3>
-                            <div className="space-y-2">
-                                {[
-                                    { value: '9+', label: '9.0+ ⭐⭐⭐⭐⭐' },
-                                    { value: '8-9', label: '8.0 - 9.0 ⭐⭐⭐⭐' },
-                                    { value: '7-8', label: '7.0 - 8.0 ⭐⭐⭐' }
-                                ].map((rating) => (
-                                    <label key={rating.value} className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-2 rounded-lg transition-colors">
-                                        <input
-                                            type="checkbox"
-                                            checked={selectedRatings.includes(rating.value)}
-                                            onChange={() => toggleRating(rating.value)}
-                                            className="w-4 h-4 text-orange-500 rounded focus:ring-orange-500"
-                                        />
-                                        <span className="text-sm text-gray-700">{rating.label}</span>
                                     </label>
                                 ))}
                             </div>
@@ -723,10 +667,12 @@ function ExplorePageContent() {
                                 <h3 className="font-bold text-gray-900 flex items-center gap-2">✨ Tiện ích</h3>
                                 <div className="grid grid-cols-2 gap-2">
                                     {[
-                                        { value: 'has_ac', label: '❄️ Máy lạnh' },
-                                        { value: 'free_parking', label: '🛵 Giữ xe' },
+                                        { value: 'has_ac', label: '❄️ Có máy lạnh' },
+                                        { value: 'free_parking', label: '🛵 Giữ xe miễn phí' },
                                         { value: 'verified', label: '👑 Admin Đề Xuất' },
-                                        { value: 'trending', label: '🔥 Hot' }
+                                        { value: 'family_friendly', label: '👨‍👩‍👧‍👦 Phù hợp gia đình' },
+                                        { value: 'nice_view', label: '📸 View đẹp' },
+                                        { value: 'trending', label: '🔥 Đang hot' }
                                     ].map((service) => (
                                         <label key={service.value} className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg">
                                             <input

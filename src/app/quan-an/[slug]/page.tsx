@@ -8,6 +8,10 @@ import { useParams, useRouter } from 'next/navigation';
 import { fetchRestaurantBySlug } from '@/lib/api';
 import { ImageGallery } from '@/components/ImageGallery';
 import { ReportModal } from '@/components/ReportModal';
+import { DiscussionEmbed } from 'disqus-react';
+import { ref, onValue, runTransaction, get } from 'firebase/database';
+import { db } from '@/lib/firebase';
+import fpPromise from '@fingerprintjs/fingerprintjs';
 
 const getBadgeStyle = (label: string) => {
     const l = label.toLowerCase();
@@ -65,6 +69,128 @@ export default function RestaurantDetailPage() {
     const [lightboxIndex, setLightboxIndex] = useState(0);
     const [touchStartX, setTouchStartX] = useState<number | null>(null);
 
+    // Rating states
+    const [ratingStats, setRatingStats] = useState({ totalScore: 0, count: 0 });
+    const [userRating, setUserRating] = useState<number | null>(null);
+    const [isSubmittingRating, setIsSubmittingRating] = useState(false);
+    const [fingerprint, setFingerprint] = useState<string | null>(null);
+
+    // Lấy FingerprintJS
+    useEffect(() => {
+        const loadFp = async () => {
+            const fp = await fpPromise.load();
+            const result = await fp.get();
+            setFingerprint(result.visitorId);
+        };
+        loadFp();
+    }, []);
+
+    // Firebase Listener
+    useEffect(() => {
+        if (!data) return;
+        const statsRef = ref(db, `ratings/${data.id}`);
+        const unsubscribe = onValue(statsRef, (snapshot) => {
+            if (snapshot.exists()) {
+                setRatingStats(snapshot.val());
+            } else {
+                setRatingStats({ totalScore: 0, count: 0 });
+            }
+        });
+
+        // Kiểm tra xem user đã vote chưa (từ localStorage)
+        const storageKey = `rated_${data.id}`;
+        const lastRated = localStorage.getItem(storageKey);
+        if (lastRated) {
+            const timeDiff = Date.now() - parseInt(lastRated, 10);
+            if (timeDiff < 24 * 60 * 60 * 1000) {
+                setUserRating(5); // UI hiển thị màu vàng, không nhất thiết chính xác số sao cũ
+            }
+        }
+
+        return () => unsubscribe();
+    }, [data]);
+
+    // Handle Rating Submit
+    const handleRating = async (stars: number) => {
+        if (!fingerprint || !data || isSubmittingRating) return;
+        
+        // Anti-spam localStorage check
+        const storageKey = `rated_${data.id}`;
+        const lastRated = localStorage.getItem(storageKey);
+        if (lastRated) {
+            const timeDiff = Date.now() - parseInt(lastRated, 10);
+            if (timeDiff < 24 * 60 * 60 * 1000) {
+                alert('Bạn đã đánh giá quán này rồi!');
+                return;
+            }
+        }
+
+        setIsSubmittingRating(true);
+        try {
+            // Lấy IP client
+            const ipResponse = await fetch('https://api.ipify.org?format=json');
+            const { ip } = await ipResponse.json();
+
+            // Firebase check IP + Fingerprint trong 24h qua
+            const votesRef = ref(db, `votes/${data.id}`);
+            const votesSnapshot = await get(votesRef);
+            if (votesSnapshot.exists()) {
+                const votes = votesSnapshot.val();
+                let hasVoted = false;
+                const now = Date.now();
+                Object.values(votes).forEach((v: any) => {
+                    const timeDiff = now - v.timestamp;
+                    if (timeDiff < 24 * 60 * 60 * 1000) {
+                        if (v.ip === ip || v.visitorId === fingerprint) {
+                            hasVoted = true;
+                        }
+                    }
+                });
+                
+                if (hasVoted) {
+                    alert('Bạn đã đánh giá quán này rồi!');
+                    localStorage.setItem(storageKey, Date.now().toString());
+                    setUserRating(stars);
+                    setIsSubmittingRating(false);
+                    return;
+                }
+            }
+
+            // Transaction update ratings stats
+            const statsRef = ref(db, `ratings/${data.id}`);
+            await runTransaction(statsRef, (currentData) => {
+                if (currentData === null) {
+                    return { totalScore: stars, count: 1 };
+                }
+                return {
+                    totalScore: (currentData.totalScore || 0) + stars,
+                    count: (currentData.count || 0) + 1
+                };
+            });
+
+            // Log vote để track anti-spam
+            const userVoteRef = ref(db, `votes/${data.id}/${fingerprint}`);
+            await runTransaction(userVoteRef, () => {
+                return {
+                    rating: stars,
+                    ip: ip,
+                    visitorId: fingerprint,
+                    timestamp: Date.now()
+                };
+            });
+
+            localStorage.setItem(storageKey, Date.now().toString());
+            setUserRating(stars);
+            alert('Cảm ơn bạn đã đánh giá!');
+
+        } catch (error) {
+            console.error('Lỗi khi gửi đánh giá:', error);
+            alert('Đã có lỗi xảy ra. Hãy thử lại sau!');
+        } finally {
+            setIsSubmittingRating(false);
+        }
+    };
+
     useEffect(() => {
         async function fetchData() {
             try {
@@ -79,44 +205,7 @@ export default function RestaurantDetailPage() {
         fetchData();
     }, [slug]);
 
-    // Init Facebook Comments Plugin safely on the client side
-    useEffect(() => {
-        if (!data) return;
-        
-        const initFB = () => {
-            if (typeof window === 'undefined') return;
 
-            // 1. Phải có thẻ fb-root trong body để SDK hoạt động
-            if (!document.getElementById('fb-root')) {
-                const fbRoot = document.createElement('div');
-                fbRoot.id = 'fb-root';
-                document.body.appendChild(fbRoot);
-            }
-
-            // 2. Chạy hàm parse()
-            if ((window as any).FB) {
-                (window as any).FB.XFBML.parse();
-            } else if (!document.getElementById('facebook-jssdk')) {
-                // Nếu chưa có script thì nhúng vào và chạy parse sau khi load xong
-                const script = document.createElement('script');
-                script.id = 'facebook-jssdk';
-                script.src = 'https://connect.facebook.net/vi_VN/sdk.js#xfbml=1&version=v19.0';
-                script.async = true;
-                script.defer = true;
-                script.crossOrigin = 'anonymous';
-                script.onload = () => {
-                    if ((window as any).FB) {
-                        (window as any).FB.XFBML.parse();
-                    }
-                };
-                document.body.appendChild(script);
-            }
-        };
-
-        // Chờ một chút để React render xong DOM (đặc biệt là cái div fb-comments)
-        const timer = setTimeout(initFB, 300);
-        return () => clearTimeout(timer);
-    }, [data, slug]);
 
     // Keyboard navigation + body scroll lock for lightbox
     useEffect(() => {
@@ -156,6 +245,12 @@ export default function RestaurantDetailPage() {
         setLightboxIndex(0);
         setLightboxOpen(true);
     };
+
+    const disqusConfig = data ? {
+        url: `https://anuongcangiuoc.org/quan-an/${slug}`,
+        identifier: String(data.id),
+        title: data.title.rendered,
+    } : undefined;
 
     if (loading) {
         return (
@@ -326,25 +421,53 @@ export default function RestaurantDetailPage() {
                             />
                         )}
 
-                        {/* Facebook Comments Section */}
+                        {/* Community Rating & Comments Section */}
                         <div className="bg-white rounded-2xl p-4 md:p-6 border border-gray-100 shadow-sm">
                             <div className="bg-gradient-to-b from-orange-50 to-white border border-orange-100 rounded-xl p-5 md:p-6 mb-6 text-center shadow-sm">
                                 <h3 className="text-gray-900 font-bold text-lg md:text-xl mb-2 flex items-center justify-center gap-2">
                                     <span>💬</span> Bạn thấy quán này thế nào?
                                 </h3>
-                                <p className="text-gray-600 text-sm md:text-base leading-relaxed max-w-lg mx-auto">
-                                    Chia sẻ cảm nhận và hình ảnh thực tế xuống đây để bà con cùng tham khảo nhé!
+                                <p className="text-gray-600 text-sm md:text-base leading-relaxed max-w-lg mx-auto mb-4">
+                                    Đánh giá và chia sẻ cảm nhận cho cộng đồng cùng tham khảo nhé!
                                 </p>
+
+                                {/* Star Rating */}
+                                <div className="flex justify-center gap-2 mb-3">
+                                    {[1, 2, 3, 4, 5].map((star) => {
+                                        const isRated = userRating && userRating >= star;
+                                        return (
+                                            <button
+                                                key={star}
+                                                onClick={() => handleRating(star)}
+                                                disabled={isSubmittingRating}
+                                                className={`text-3xl md:text-4xl transition-transform hover:scale-110 active:scale-95 disabled:opacity-50 ${isRated ? 'text-yellow-400' : 'text-gray-200'}`}
+                                                aria-label={`${star} Sao`}
+                                            >
+                                                ★
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                                <div className="text-sm md:text-base font-semibold text-gray-700">
+                                    {ratingStats.count > 0 ? (
+                                        <>
+                                            ⭐ {(ratingStats.totalScore / ratingStats.count).toFixed(1)}/5
+                                            <span className="text-gray-400 mx-2">•</span>
+                                            Đã có <span className="text-orange-600 font-bold">{ratingStats.count}</span> người đánh giá
+                                        </>
+                                    ) : (
+                                        <span className="text-gray-500 font-medium">Chưa có đánh giá nào. Hãy là người đầu tiên!</span>
+                                    )}
+                                </div>
                             </div>
                             
                             <div className="w-full overflow-hidden min-h-[150px]">
-                                {/* Hydration-safe wrapper */}
-                                <div
-                                    className="fb-comments w-full"
-                                    data-href={`https://anuongcangiuoc.org/quan-an/${slug}`}
-                                    data-width="100%"
-                                    data-numposts="5"
-                                ></div>
+                                {disqusConfig && (
+                                    <DiscussionEmbed
+                                        shortname="anuongcangiuoc"
+                                        config={disqusConfig}
+                                    />
+                                )}
                             </div>
                         </div>
 

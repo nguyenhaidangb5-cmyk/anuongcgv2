@@ -9,6 +9,9 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@fingerprintjs/fingerprintjs": "^5.1.0",
+    "disqus-react": "^1.1.7",
+    "firebase": "^12.11.0",
     "fuse.js": "^7.1.0",
     "next": "16.1.6",
     "react": "19.2.3",
@@ -17,6 +20,7 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@types/fingerprintjs__fingerprintjs": "^2.1.0",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
