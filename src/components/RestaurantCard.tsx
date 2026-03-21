@@ -1,11 +1,12 @@
 "use client";
 import React from 'react';
 import Link from 'next/link';
-// import Image from 'next/image'; // Đã tắt Image của Next.js để dùng img thường
 import { Restaurant, BADGE_LABELS } from '@/types/wordpress';
+import { FirebaseRating } from '@/app/kham-pha/page';
 
 interface RestaurantCardProps {
     data: Restaurant;
+    firebaseRating?: FirebaseRating;
 }
 
 const getBadgeStyle = (label: string) => {
@@ -40,17 +41,26 @@ const getBadgeStyle = (label: string) => {
     };
 };
 
-export const RestaurantCard: React.FC<RestaurantCardProps> = ({ data }) => {
-    const ratings = [
+export const RestaurantCard: React.FC<RestaurantCardProps> = ({ data, firebaseRating }) => {
+    // Firebase rating (ưu tiên) hoặc admin rating
+    const fbAvg = firebaseRating && firebaseRating.count > 0
+        ? (firebaseRating.totalScore / firebaseRating.count).toFixed(1)
+        : null;
+    const fbCount = firebaseRating?.count ?? 0;
+
+    // Admin rating fallback
+    const adminRatings = [
         Number(data.rating_food || 0),
         Number(data.rating_price || 0),
         Number(data.rating_service || 0),
         Number(data.rating_ambiance || 0),
     ].filter((r) => r > 0);
-
-    const averageRating = ratings.length
-        ? (ratings.reduce((a, b) => a + b, 0) / ratings.length).toFixed(1)
+    const adminAvg = adminRatings.length
+        ? (adminRatings.reduce((a, b) => a + b, 0) / adminRatings.length).toFixed(1)
         : null;
+
+    // Hiển thị Firebase rating nếu có, ngược lại dùng admin rating
+    const displayRating = fbAvg || adminAvg;
 
     const imageUrl = data.featured_media_url || 'https://placehold.co/600x400?text=No+Image';
     const isClosed = (data as any).is_closed === true;
@@ -76,10 +86,11 @@ export const RestaurantCard: React.FC<RestaurantCardProps> = ({ data }) => {
                 )}
 
                 {/* Rating Badge */}
-                {averageRating && (
+                {displayRating && (
                     <div className="absolute bottom-1 right-1 md:top-3 md:right-3 md:bottom-auto bg-white/90 md:bg-orange-500 md:text-white text-orange-600 px-1.5 py-0.5 md:px-2 md:py-1 rounded md:rounded-lg font-bold text-[10px] md:text-xs shadow-sm flex items-center gap-1 backdrop-blur-sm">
                         <span>★</span>
-                        <span>{averageRating}</span>
+                        <span>{displayRating}</span>
+                        {fbCount > 0 && <span className="hidden md:inline opacity-80">({fbCount})</span>}
                     </div>
                 )}
 

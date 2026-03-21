@@ -9,8 +9,19 @@ const plusJakartaSans = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Ẩm thực Cần Giuộc Review",
-  description: "Website review ẩm thực Cần Giuộc chuyên nghiệp",
+  title: "Ẩm thực Cần Giuọc Review",
+  description: "Khám phá ẩm thực Cần Giuộc - Review quán ăn, tìm món ngon gần bạn",
+  manifest: "/manifest.json",
+  themeColor: "#f97316",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Ăn Uống CG",
+  },
+  icons: {
+    icon: "/icon-512x512.png",
+    apple: "/icon-192x192.png",
+  },
 };
 
 export default function RootLayout({
@@ -20,9 +31,17 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="vi">
-      <body
-        className={`${plusJakartaSans.variable} antialiased`}
-      >
+      <head>
+        <meta name="application-name" content="Ăn Uống Cần Giuọc" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <meta name="apple-mobile-web-app-title" content="Ăn Uống CG" />
+        <meta name="theme-color" content="#f97316" />
+        <link rel="manifest" href="/manifest.json" />
+        <link rel="apple-touch-icon" href="/icon-192x192.png" />
+      </head>
+      <body className={`${plusJakartaSans.variable} antialiased`}>
         {children}
       </body>
     </html>
