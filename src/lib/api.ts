@@ -52,7 +52,6 @@ export async function fetchRestaurantsWithPagination(params: FetchRestaurantsPar
     const queryParams = new URLSearchParams({
         per_page: per_page.toString(),
         page: page.toString(),
-        _embed: '1', // Để lấy featured image
     });
 
     // Truyền keyword trực tiếp - WP REST API tự xử lý URL decode

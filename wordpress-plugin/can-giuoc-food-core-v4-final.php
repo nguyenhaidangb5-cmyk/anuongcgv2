@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 /**
  * Plugin Name: Cần Giuộc Food Core (v4.0 - Optimized)
  * Description: Plugin tối ưu với Meta Box hợp nhất, API response đầy đủ thumbnail_url và formatted_price
@@ -1004,11 +1004,29 @@ class Can_Giuoc_Food_Core
             'schema' => array('type' => 'array'),
         ));
 
+        // FOOD TYPE NAMES (Dành cho hiển thị & search nội dung tiếng Việt)
+        register_rest_field('quan_an', 'food_type_names', array(
+            'get_callback' => function ($object) {
+                $terms = wp_get_post_terms($object['id'], 'food_type');
+                return is_wp_error($terms) ? array() : wp_list_pluck($terms, 'name');
+            },
+            'schema' => array('type' => 'array'),
+        ));
+
         // KHU VUC SLUGS
         register_rest_field('quan_an', 'khu_vuc_slugs', array(
             'get_callback' => function ($object) {
                 $terms = wp_get_post_terms($object['id'], 'khu_vuc');
                 return is_wp_error($terms) ? array() : wp_list_pluck($terms, 'slug');
+            },
+            'schema' => array('type' => 'array'),
+        ));
+
+        // KHU VUC NAMES (Dành cho hiển thị & filter client-side mà không cần _embed)
+        register_rest_field('quan_an', 'region_names', array(
+            'get_callback' => function ($object) {
+                $terms = wp_get_post_terms($object['id'], 'khu_vuc');
+                return is_wp_error($terms) ? array() : wp_list_pluck($terms, 'name');
             },
             'schema' => array('type' => 'array'),
         ));

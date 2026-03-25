@@ -1,10 +1,12 @@
 "use client";
-import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import Fuse from 'fuse.js';
 import { Navbar } from '@/components/Navbar';
 import { RestaurantCard } from '@/components/RestaurantCard';
 import { Restaurant } from '@/types/wordpress';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { fetchRestaurantsWithPagination } from '@/lib/api';
+import { normalizeVietnameseString } from '@/lib/vietnamese-utils';
 import { ref, get } from 'firebase/database';
 import { db } from '@/lib/firebase';
 import { FirebaseRating } from '@/types/firebase';
@@ -53,8 +55,7 @@ function ExplorePageContent() {
     const [allRestaurants, setAllRestaurants] = useState<Restaurant[]>([]);
     const [pagedRestaurants, setPagedRestaurants] = useState<Restaurant[]>([]);
     const [loading, setLoading] = useState(false);
-    const [searchLoading, setSearchLoading] = useState(() => !!(searchParams.get('q') || '')); // true until server-side search returns
-    const [serverSearchResults, setServerSearchResults] = useState<Restaurant[]>([]);
+    const [searchLoading, setSearchLoading] = useState(() => !!(searchParams.get('q') || ''));
     const [loadingMore, setLoadingMore] = useState(false);
     const [allRestaurantsLoaded, setAllRestaurantsLoaded] = useState(false);
     const [showMobileFilter, setShowMobileFilter] = useState(false);
@@ -159,8 +160,26 @@ function ExplorePageContent() {
         syncUrl({ regions: null, prices: null, services: null, food_types: null, is_new: null });
     };
 
-    // Note: fuse/Fuse.js is no longer used for search (replaced by server-side WP API search).
-    // allRestaurants is still fetched in background for client-side filter logic (region/food_type etc.).
+    // --- Fuse.js ---
+    const fuse = useMemo(() => {
+        if (allRestaurants.length === 0) return null;
+        return new Fuse(allRestaurants, {
+            keys: [
+                { name: 'title.rendered', weight: 2 },
+                { name: 'address', weight: 1.5 },
+                { name: 'food_type_names', weight: 1 },
+                { name: 'region_names', weight: 0.8 }
+            ],
+            threshold: 0.3,
+            ignoreLocation: true,
+            getFn: (obj, path) => {
+                const value = Fuse.config.getFn(obj, path);
+                if (typeof value === 'string') return normalizeVietnameseString(value);
+                if (Array.isArray(value)) return value.map(v => typeof v === 'string' ? normalizeVietnameseString(v) : v);
+                return value;
+            } // require import { normalizeVietnameseString } ... WAIT I MIGHT HAVE REMOVED IT.
+        });
+    }, [allRestaurants]);
 
     const baseRestaurantsForFilter = useMemo(() => {
         const hasFilters =
@@ -168,23 +187,30 @@ function ExplorePageContent() {
             selectedPriceRanges.length > 0 ||
             selectedServices.length > 0 ||
             selectedFoodTypes.length > 0 ||
-            isNew;
+            isNew || searchKeyword.trim().length >= 2;
             
-        // Optimization: if we have filters but allRestaurants hasn't finished loading, 
-        // fallback to pagedRestaurants to allow instant (partial) filtering instead of hanging.
         if (hasFilters) {
             return allRestaurants.length > 0 ? allRestaurants : pagedRestaurants;
         }
         return pagedRestaurants;
-    }, [selectedRegions, selectedPriceRanges, selectedServices, selectedFoodTypes, isNew, allRestaurants, pagedRestaurants]);
+    }, [selectedRegions, selectedPriceRanges, selectedServices, selectedFoodTypes, isNew, searchKeyword, allRestaurants, pagedRestaurants]);
 
     const searchedRestaurants = useMemo(() => {
-        // When there's a search keyword, use server-side results (fast)
-        if (searchKeyword.trim().length >= 2) {
-            return serverSearchResults;
+        if (!searchKeyword.trim() || searchKeyword.trim().length < 2) return baseRestaurantsForFilter;
+        if (allRestaurants.length === 0) return []; // Only rely on true fuse search when all loaded
+        const normalizedKeyword = normalizeVietnameseString(searchKeyword);
+        let results: Restaurant[] = [];
+        if (fuse) results = fuse.search(normalizedKeyword).map(r => r.item);
+        if (results.length === 0) {
+            const lower = normalizedKeyword.toLowerCase();
+            results = allRestaurants.filter(r => {
+                const t = normalizeVietnameseString(r.title?.rendered || '').toLowerCase();
+                const a = normalizeVietnameseString(r.address || '').toLowerCase();
+                return t.includes(lower) || a.includes(lower);
+            });
         }
-        return baseRestaurantsForFilter;
-    }, [searchKeyword, serverSearchResults, baseRestaurantsForFilter]);
+        return results;
+    }, [searchKeyword, allRestaurants, fuse, baseRestaurantsForFilter]);
 
     // --- Helpers sort ---
     const getSortOrderBy = (sort: string): 'date' | 'rating' | 'view_count' | undefined => {
@@ -197,26 +223,7 @@ function ExplorePageContent() {
     };
     const getSortOrder = (sort: string): 'asc' | 'desc' => sort === 'oldest' ? 'asc' : 'desc';
 
-
-    // --- Server-side search (fast: only fetches matching restaurants) ---
-    useEffect(() => {
-        const keyword = searchKeyword.trim();
-        if (keyword.length < 2) {
-            setServerSearchResults([]);
-            setSearchLoading(false);
-            return;
-        }
-        setSearchLoading(true);
-        setServerSearchResults([]);
-        fetchRestaurantsWithPagination({ search: keyword, per_page: 50 })
-            .then(({ restaurants }) => {
-                setServerSearchResults(restaurants);
-            })
-            .catch(() => {})
-            .finally(() => setSearchLoading(false));
-    }, [searchKeyword]);
-
-    // --- Fetch ALL restaurants (background, only for region/foodtype filter) ---
+    // --- Fetch ALL restaurants (background) ---
     useEffect(() => {
         async function loadAll() {
             try {
@@ -226,6 +233,7 @@ function ExplorePageContent() {
                 console.error('Error fetching all restaurants:', error);
             } finally {
                 setAllRestaurantsLoaded(true);
+                setSearchLoading(false); // Signal that search is ready when background fetch finishes
             }
         }
         loadAll();
@@ -299,11 +307,7 @@ function ExplorePageContent() {
     // --- Filter logic ---
     const filteredRestaurants = searchedRestaurants.filter((restaurant) => {
         if (selectedRegions.length > 0) {
-            const embedded = (restaurant as any)._embedded;
-            const regionTerms = embedded?.['wp:term']?.find((termGroup: any[]) =>
-                termGroup.some((term: any) => term.taxonomy === 'khu_vuc')
-            ) || [];
-            const regionNames = regionTerms.map((term: any) => term.name);
+            const regionNames = restaurant.region_names || [];
             // Backward compat: "Xã Cần Giuộc" also matches old WP term "Thị trấn Cần Giuộc"
             const expandedRegions = selectedRegions.flatMap(r =>
                 r === 'Xã Cần Giuộc' ? ['Xã Cần Giuộc', 'Thị trấn Cần Giuộc'] : [r]
@@ -329,24 +333,20 @@ function ExplorePageContent() {
             if (!matchesService) return false;
         }
         if (selectedFoodTypes.length > 0) {
-            const embedded = (restaurant as any)._embedded;
-            const foodTypeTerms = embedded?.['wp:term']?.find((termGroup: any[]) =>
-                termGroup.some((term: any) => term.taxonomy === 'food_type')
-            ) || [];
-            const foodTypeSlugs = foodTypeTerms.map((term: any) => term.slug);
+            const foodTypeSlugs = restaurant.food_type_slugs || [];
             if (!selectedFoodTypes.some(type => foodTypeSlugs.includes(type))) return false;
         }
         if (isNew && !restaurant.is_new) return false;
         return true;
     });
 
-    const hasActiveFilters = selectedRegions.length > 0 || selectedPriceRanges.length > 0 ||
-        selectedServices.length > 0 || selectedFoodTypes.length > 0 || isNew;
+    const hasActiveFiltersOrSearch = selectedRegions.length > 0 || selectedPriceRanges.length > 0 ||
+        selectedServices.length > 0 || selectedFoodTypes.length > 0 || isNew || searchKeyword.trim().length >= 2;
 
     // Sidebar filter JSX (dùng lại cả desktop + mobile)
     const filterSidebar = (
         <>
-            {hasActiveFilters && (
+            {hasActiveFiltersOrSearch && (
                 <button
                     onClick={clearAllFilters}
                     className="w-full bg-red-50 text-red-600 hover:bg-red-100 font-bold py-3 rounded-xl transition-all flex items-center justify-center gap-2"
@@ -483,7 +483,7 @@ function ExplorePageContent() {
                             className="lg:hidden w-full bg-orange-500 text-white font-bold py-3 rounded-xl mb-4 flex items-center justify-center gap-2 shadow-lg shadow-orange-200"
                         >
                             <span>🔍</span>
-                            <span>Bộ lọc & Tìm kiếm{hasActiveFilters ? ` (đang lọc)` : ''}</span>
+                            <span>Bộ lọc & Tìm kiếm{hasActiveFiltersOrSearch ? ` (đang lọc)` : ''}</span>
                         </button>
 
                         {/* Sort & Results */}
@@ -509,15 +509,10 @@ function ExplorePageContent() {
                                 <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-orange-500 mx-auto"></div>
                                 <p className="mt-4 text-gray-600">Đang tải dữ liệu...</p>
                             </div>
-                        ) : searchLoading ? (
+                        ) : (hasActiveFiltersOrSearch && !allRestaurantsLoaded) ? (
                             <div className="text-center py-20">
                                 <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-orange-400 mx-auto"></div>
-                                <p className="mt-4 text-gray-500 text-sm">Đang tìm kiếm...</p>
-                            </div>
-                        ) : (hasActiveFilters && !allRestaurantsLoaded) ? (
-                            <div className="text-center py-20">
-                                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-orange-400 mx-auto"></div>
-                                <p className="mt-4 text-gray-500 text-sm">Đang lọc dữ liệu...</p>
+                                <p className="mt-4 text-gray-500 text-sm">Đang tìm dữ liệu phù hợp...</p>
                             </div>
                         ) : filteredRestaurants.length > 0 ? (
                             <>
@@ -541,7 +536,7 @@ function ExplorePageContent() {
                             <div className="text-center py-20">
                                 <p className="text-2xl mb-2">😔</p>
                                 <p className="text-gray-600 mb-4">Không tìm thấy quán ăn phù hợp</p>
-                                {hasActiveFilters && (
+                                {hasActiveFiltersOrSearch && (
                                     <button onClick={clearAllFilters} className="text-orange-500 hover:underline font-bold">
                                         Xóa bộ lọc và thử lại
                                     </button>

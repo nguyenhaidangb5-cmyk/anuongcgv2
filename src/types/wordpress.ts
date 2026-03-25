@@ -62,6 +62,12 @@ export interface Restaurant {
     menu_images?: ImageObject[];
     gallery_images?: ImageObject[];
 
+    // Additional arrays for custom filters and search from WP REST API
+    food_type_slugs?: string[];
+    khu_vuc_slugs?: string[];
+    food_type_names?: string[];
+    region_names?: string[];
+
     // Legacy/Helper fields (giữ lại nếu code cũ còn dùng)
     region?: string;
     priceRange?: string; // alias cũ của price_range
