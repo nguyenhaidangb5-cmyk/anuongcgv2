@@ -129,6 +129,7 @@ export const RestaurantCard: React.FC<RestaurantCardProps> = ({ data, firebaseRa
                         {[
                             { key: 'has_ac', label: 'Máy lạnh', icon: '❄️' },
                             { key: 'has_parking', label: 'Giữ xe', icon: '🅿️' },
+                            { key: 'is_shipping', label: 'Giao hàng', icon: '🛵' },
                             { key: 'is_family_friendly', label: 'Gia đình', icon: '👨‍👩‍👧‍👦' },
                             { key: 'has_nice_view', label: 'View đẹp', icon: '📸' },
                             { key: 'is_good_cheap', label: 'Bổ rẻ', icon: '💰' },

@@ -13,31 +13,31 @@ interface Collection {
 const collections: Collection[] = [
     {
         title: 'Bữa Sáng Ấm Bụng',
-        href: '/kham-pha?category=an-sang',
+        href: '/kham-pha?food_types=an-sang',
         image: 'https://images.unsplash.com/photo-1525351484163-7529414344d8?w=600&h=600&fit=crop',
         emoji: '🌅'
     },
     {
         title: 'Lê La Ăn Vặt',
-        href: '/kham-pha?category=do-an-vat',
+        href: '/kham-pha?food_types=do-an-vat',
         image: 'https://images.unsplash.com/photo-1601050690597-df0568f70950?w=600&h=600&fit=crop',
         emoji: '🍢'
     },
     {
         title: 'Góc Cà Phê & Trà Sữa',
-        href: '/kham-pha?category=tra-sua-cafe',
+        href: '/kham-pha?food_types=tra-sua-cafe',
         image: 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=600&h=600&fit=crop',
         emoji: '☕'
     },
     {
         title: 'Lai Rai Chiến Hữu',
-        href: '/kham-pha?category=quan-nhau',
+        href: '/kham-pha?food_types=quan-nhau',
         image: 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=600&h=600&fit=crop',
         emoji: '🍻'
     },
     {
         title: 'Thanh Đạm Món Chay',
-        href: '/kham-pha?category=mon-chay',
+        href: '/kham-pha?food_types=mon-chay',
         image: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=600&h=600&fit=crop',
         emoji: '🥗'
     },

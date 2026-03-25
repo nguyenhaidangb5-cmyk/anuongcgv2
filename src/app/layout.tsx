@@ -9,7 +9,7 @@ const plusJakartaSans = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Ẩm thực Cần Giuọc Review",
+  title: "Ẩm thực Cần Giuộc Review",
   description: "Khám phá ẩm thực Cần Giuộc - Review quán ăn, tìm món ngon gần bạn",
   manifest: "/manifest.json",
   themeColor: "#f97316",
@@ -32,7 +32,7 @@ export default function RootLayout({
   return (
     <html lang="vi">
       <head>
-        <meta name="application-name" content="Ăn Uống Cần Giuọc" />
+        <meta name="application-name" content="Ăn Uống Cần Giuộc" />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />

@@ -36,7 +36,7 @@ export default async function Home() {
         <div className="container mx-auto px-4">
           <div className="flex overflow-x-auto gap-3 md:gap-4 no-scrollbar py-2 md:justify-center">
             {[
-              { name: '🏘️ Thị trấn Cần Giuộc', region: 'Thị trấn Cần Giuộc' },
+              { name: '🏘️ Xã Cần Giuộc', region: 'Xã Cần Giuộc' },
               { name: '🌾 Xã Mỹ Lộc', region: 'Xã Mỹ Lộc' },
               { name: '🌿 Xã Phước Lý', region: 'Xã Phước Lý' },
               { name: '🏡 Xã Phước Vĩnh Tây', region: 'Xã Phước Vĩnh Tây' },
@@ -44,7 +44,7 @@ export default async function Home() {
             ].map((loc, idx) => (
               <Link
                 key={idx}
-                href={`/kham-pha?khu_vuc=${encodeURIComponent(loc.region)}`}
+                href={`/kham-pha?regions=${encodeURIComponent(loc.region)}`}
                 className="flex-shrink-0 whitespace-nowrap bg-gray-50 hover:bg-orange-500 hover:text-white px-5 py-2.5 md:px-6 md:py-3 rounded-full font-bold text-gray-700 transition-all text-sm md:text-base border border-gray-100"
               >
                 {loc.name}

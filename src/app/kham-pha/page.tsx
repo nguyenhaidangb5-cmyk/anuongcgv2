@@ -305,7 +305,11 @@ function ExplorePageContent() {
                 termGroup.some((term: any) => term.taxonomy === 'khu_vuc')
             ) || [];
             const regionNames = regionTerms.map((term: any) => term.name);
-            if (!selectedRegions.some(region => regionNames.includes(region))) return false;
+            // Backward compat: "Xã Cần Giuộc" also matches old WP term "Thị trấn Cần Giuộc"
+            const expandedRegions = selectedRegions.flatMap(r =>
+                r === 'Xã Cần Giuộc' ? ['Xã Cần Giuộc', 'Thị trấn Cần Giuộc'] : [r]
+            );
+            if (!expandedRegions.some(r => regionNames.includes(r))) return false;
         }
         if (selectedPriceRanges.length > 0) {
             if (!restaurant.price_range || !selectedPriceRanges.includes(restaurant.price_range)) return false;
@@ -367,7 +371,7 @@ function ExplorePageContent() {
             <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
                 <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2"><span>📍</span> Khu vực</h3>
                 <div className="space-y-2">
-                    {['Thị trấn Cần Giuộc', 'Xã Phước Lý', 'Xã Mỹ Lộc', 'Xã Phước Vĩnh Tây', 'Xã Tân Tập'].map((region) => (
+                    {['Xã Cần Giuộc', 'Xã Phước Lý', 'Xã Mỹ Lộc', 'Xã Phước Vĩnh Tây', 'Xã Tân Tập'].map((region) => (
                         <label key={region} className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-2 rounded-lg transition-colors">
                             <input type="checkbox" checked={selectedRegions.includes(region)} onChange={() => toggleRegion(region)} className="w-4 h-4 text-orange-500 rounded focus:ring-orange-500" />
                             <span className="text-sm text-gray-700">{region}</span>
@@ -421,7 +425,7 @@ function ExplorePageContent() {
                     {[
                         { value: 'an-sang', label: '🌅 Ăn sáng' },
                         { value: 'quan-nhau', label: '🍻 Quán nhậu' },
-                        { value: 'com-mon-nuoc', label: '🍚 Cơm' },
+                        { value: 'com', label: '🍚 Cơm' },
                         { value: 'do-an-vat', label: '🍢 Đồ ăn vặt' },
                         { value: 'lau-nuong', label: '🍲 Lẩu & Nướng' },
                         { value: 'hai-san', label: '🦞 Hải Sản' },

@@ -144,7 +144,7 @@ export const LiveSearch: React.FC<LiveSearchProps> = ({
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (keyword.trim()) {
-            window.location.href = `/kham-pha?search=${encodeURIComponent(keyword)}`;
+            window.location.href = `/kham-pha?q=${encodeURIComponent(keyword)}`;
         }
     };
 
@@ -234,7 +234,7 @@ export const LiveSearch: React.FC<LiveSearchProps> = ({
                             {/* View All Link */}
                             <div className="p-3 bg-gray-50 text-center">
                                 <Link
-                                    href={`/kham-pha?search=${encodeURIComponent(keyword)}`}
+                                    href={`/kham-pha?q=${encodeURIComponent(keyword)}`}
                                     onClick={() => setShowDropdown(false)}
                                     className="text-sm font-bold text-orange-600 hover:text-orange-700 hover:underline"
                                 >
