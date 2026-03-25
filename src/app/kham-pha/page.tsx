@@ -327,6 +327,10 @@ function ExplorePageContent() {
                     case 'nice_view': case 'has_nice_view': return restaurant.has_nice_view === true;
                     case 'trending': case 'is_trending': return restaurant.is_trending === true;
                     case 'good_cheap': case 'is_good_cheap': return restaurant.is_good_cheap === true;
+                    case 'local_choice': case 'is_local_choice': return restaurant.is_local_choice === true;
+                    case 'authentic': case 'is_authentic': return restaurant.is_authentic === true;
+                    case 'has_alcohol': return restaurant.has_alcohol === true;
+                    case 'shipping': case 'is_shipping': return restaurant.is_shipping === true;
                     default: return false;
                 }
             });
@@ -405,9 +409,14 @@ function ExplorePageContent() {
                         { value: 'has_ac', label: '❄️ Có máy lạnh' },
                         { value: 'free_parking', label: '🛵 Giữ xe miễn phí' },
                         { value: 'verified', label: '👑 Admin Đề Xuất' },
+                        { value: 'local_choice', label: '🏠 Dân địa phương chọn' },
+                        { value: 'trending', label: '🔥 Đang hot (Trending)' },
                         { value: 'family_friendly', label: '👨‍👩‍👧‍👦 Phù hợp gia đình' },
-                        { value: 'nice_view', label: '📸 View đẹp' },
-                        { value: 'trending', label: '🔥 Đang hot' }
+                        { value: 'nice_view', label: '📸 View đẹp/Sống ảo' },
+                        { value: 'good_cheap', label: '💰 Ngon, bổ, rẻ' },
+                        { value: 'authentic', label: '🍜 Chuẩn vị/Authentic' },
+                        { value: 'has_alcohol', label: '🍺 Có bán rượu bia' },
+                        { value: 'shipping', label: '🚀 Giao hàng/Delivery' }
                     ].map((service) => (
                         <label key={service.value} className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-2 rounded-lg transition-colors">
                             <input type="checkbox" checked={selectedServices.includes(service.value)} onChange={() => toggleService(service.value)} className="w-4 h-4 text-orange-500 rounded focus:ring-orange-500" />
