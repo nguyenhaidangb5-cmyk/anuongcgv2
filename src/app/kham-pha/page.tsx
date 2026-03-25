@@ -187,7 +187,12 @@ function ExplorePageContent() {
             selectedServices.length > 0 ||
             selectedFoodTypes.length > 0 ||
             isNew;
-        if (hasFilters) return allRestaurants;
+            
+        // Optimization: if we have filters but allRestaurants hasn't finished loading, 
+        // fallback to pagedRestaurants to allow instant (partial) filtering instead of hanging.
+        if (hasFilters) {
+            return allRestaurants.length > 0 ? allRestaurants : pagedRestaurants;
+        }
         return pagedRestaurants;
     }, [selectedRegions, selectedPriceRanges, selectedServices, selectedFoodTypes, isNew, allRestaurants, pagedRestaurants]);
 
@@ -236,7 +241,10 @@ function ExplorePageContent() {
 
     // --- Fetch paged restaurants (infinite scroll, không có search) ---
     useEffect(() => {
-        if (searchKeyword.trim()) return;
+        if (searchKeyword.trim()) {
+            setLoading(false); // Bug fix: release loading lock so search results can show
+            return;
+        }
         async function fetchData() {
             setLoading(true);
             setCurrentPage(1);
@@ -505,7 +513,7 @@ function ExplorePageContent() {
                         </div>
 
                         {/* Restaurant Grid */}
-                        {loading || (hasActiveFilters && !allRestaurantsLoaded) ? (
+                        {loading ? (
                             <div className="text-center py-20">
                                 <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-orange-500 mx-auto"></div>
                                 <p className="mt-4 text-gray-600">Đang tải dữ liệu...</p>
