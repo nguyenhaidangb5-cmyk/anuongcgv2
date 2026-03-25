@@ -54,7 +54,8 @@ function ExplorePageContent() {
     // --- Data state ---
     const [allRestaurants, setAllRestaurants] = useState<Restaurant[]>([]);
     const [pagedRestaurants, setPagedRestaurants] = useState<Restaurant[]>([]);
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(false); // false by default — set true only while paged fetch is in-flight
+    const [searchLoading, setSearchLoading] = useState(() => !!(searchParams.get('q') || '')); // true if search keyword on mount
     const [loadingMore, setLoadingMore] = useState(false);
     const [allRestaurantsLoaded, setAllRestaurantsLoaded] = useState(false);
     const [showMobileFilter, setShowMobileFilter] = useState(false);
@@ -229,11 +230,12 @@ function ExplorePageContent() {
         async function loadAll() {
             try {
                 const { restaurants: data } = await fetchRestaurantsWithPagination({ per_page: 200, page: 1 });
-                setAllRestaurants(data); // Bỏ shuffleArray để filter giữ nguyên thứ tự
+                setAllRestaurants(data);
             } catch (error) {
                 console.error('Error fetching all restaurants:', error);
             } finally {
                 setAllRestaurantsLoaded(true);
+                setSearchLoading(false); // Signal search results are ready to render
             }
         }
         loadAll();
@@ -242,8 +244,7 @@ function ExplorePageContent() {
     // --- Fetch paged restaurants (infinite scroll, không có search) ---
     useEffect(() => {
         if (searchKeyword.trim()) {
-            setLoading(false); // Bug fix: release loading lock so search results can show
-            return;
+            return; // Don't fetch paged list when searching; searchLoading handles visibility
         }
         async function fetchData() {
             setLoading(true);
@@ -498,7 +499,7 @@ function ExplorePageContent() {
                         {/* Sort & Results */}
                         <div className="flex items-center justify-between mb-6">
                             <p className="text-sm text-gray-600">
-                                {loading ? 'Đang tải...' : `${filteredRestaurants.length} kết quả`}
+                                {loading || searchLoading ? 'Đang tải...' : `${filteredRestaurants.length} kết quả`}
                             </p>
                             <select
                                 value={sortBy}
@@ -517,6 +518,11 @@ function ExplorePageContent() {
                             <div className="text-center py-20">
                                 <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-orange-500 mx-auto"></div>
                                 <p className="mt-4 text-gray-600">Đang tải dữ liệu...</p>
+                            </div>
+                        ) : searchLoading ? (
+                            <div className="text-center py-20">
+                                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-orange-400 mx-auto"></div>
+                                <p className="mt-4 text-gray-500 text-sm">Đang tìm kiếm...</p>
                             </div>
                         ) : filteredRestaurants.length > 0 ? (
                             <>
