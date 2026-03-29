@@ -63,6 +63,47 @@ function seededShuffle<T>(array: T[], seed: number): T[] {
     return arr;
 }
 
+// ---------------------------------------------------------------------------
+// sessionStorage cache – giúp Scroll Restoration hoạt động khi nhấn Back
+// ---------------------------------------------------------------------------
+const CACHE_KEY = 'kham-pha-cache-v2';
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 phút
+
+interface KhamPhaCache {
+    allRestaurants: Restaurant[];
+    pagedRestaurants: Restaurant[];
+    currentPage: number;
+    totalPages: number;
+    totalRestaurants: number;
+    hasMore: boolean;
+    sortBy: string;
+    timestamp: number;
+}
+
+function readCache(sortBy: string): KhamPhaCache | null {
+    try {
+        if (typeof window === 'undefined') return null;
+        const raw = sessionStorage.getItem(CACHE_KEY);
+        if (!raw) return null;
+        const cache: KhamPhaCache = JSON.parse(raw);
+        // Vô hiệu nếu hết TTL hoặc sortBy khác
+        if (Date.now() - cache.timestamp > CACHE_TTL_MS) {
+            sessionStorage.removeItem(CACHE_KEY);
+            return null;
+        }
+        if (cache.sortBy !== sortBy) return null;
+        return cache;
+    } catch { return null; }
+}
+
+function writeCache(data: Omit<KhamPhaCache, 'timestamp'>) {
+    try {
+        if (typeof window === 'undefined') return;
+        sessionStorage.setItem(CACHE_KEY, JSON.stringify({ ...data, timestamp: Date.now() }));
+    } catch { /* bỏ qua lỗi quota */ }
+}
+// ---------------------------------------------------------------------------
+
 function ExplorePageContent() {
     const searchParams = useSearchParams();
     const router = useRouter();
@@ -90,26 +131,39 @@ function ExplorePageContent() {
     const [searchKeyword, setSearchKeyword] = useState(() => searchParams.get('q') || '');
 
     // --- Daily Seed (cố định theo ngày, múi giờ VN) ---
-    // Tính 1 lần lúc mount, sẽ không thay đổi cho đến ngày hôm sau.
     const dailySeed = useMemo(() => getVietnamDateSeed(), []);
 
-    // --- Data state ---
-    const [allRestaurants, setAllRestaurants] = useState<Restaurant[]>([]);
-    const [pagedRestaurants, setPagedRestaurants] = useState<Restaurant[]>([]);
-    const [loading, setLoading] = useState(false);
+    // Đọc cache sớm nhất có thể để dùng làm initial state
+    // (chạy đồng bộ một lần, an toàn vì "use client")
+    const initialSortBy = searchParams.get('sort') || 'newest';
+    const cachedState = useMemo(() => readCache(initialSortBy), []); // eslint-disable-line react-hooks/exhaustive-deps
+
+    // --- Data state – khởi tạo từ cache nếu có (scroll restoration) ---
+    const [allRestaurants, setAllRestaurants] = useState<Restaurant[]>(
+        () => cachedState?.allRestaurants ?? []
+    );
+    const [pagedRestaurants, setPagedRestaurants] = useState<Restaurant[]>(
+        () => cachedState?.pagedRestaurants ?? []
+    );
+    const [loading, setLoading] = useState(
+        // Nếu có cache thì không cần loading spinner → DOM ổn định ngay
+        () => !cachedState
+    );
     const [searchLoading, setSearchLoading] = useState(() => !!(searchParams.get('q') || ''));
     const [loadingMore, setLoadingMore] = useState(false);
-    const [allRestaurantsLoaded, setAllRestaurantsLoaded] = useState(false);
+    const [allRestaurantsLoaded, setAllRestaurantsLoaded] = useState(
+        () => !!(cachedState?.allRestaurants?.length)
+    );
     const [showMobileFilter, setShowMobileFilter] = useState(false);
 
     // Firebase ratings: map restaurantId -> { totalScore, count }
     const [ratingsMap, setRatingsMap] = useState<Record<number, FirebaseRating>>({});
 
     // Pagination
-    const [currentPage, setCurrentPage] = useState(1);
-    const [totalRestaurants, setTotalRestaurants] = useState(0);
-    const [totalPages, setTotalPages] = useState(0);
-    const [hasMore, setHasMore] = useState(false);
+    const [currentPage, setCurrentPage] = useState(() => cachedState?.currentPage ?? 1);
+    const [totalRestaurants, setTotalRestaurants] = useState(() => cachedState?.totalRestaurants ?? 0);
+    const [totalPages, setTotalPages] = useState(() => cachedState?.totalPages ?? 0);
+    const [hasMore, setHasMore] = useState(() => cachedState?.hasMore ?? false);
 
     /**
      * dailyShuffledRestaurants: Mảng xáo trộn CỐ ĐỊNH trong ngày.
@@ -243,20 +297,30 @@ function ExplorePageContent() {
             selectedFoodTypes.length > 0 ||
             isNew || searchKeyword.trim().length >= 2;
 
-        if (hasFilters) {
-            // Khi có filter/search: dùng toàn bộ danh sách đã được seed hàng ngày
-            // (ổn định, không random lại) hoặc pagedRestaurants nếu chưa load xong.
-            if (sortBy === 'newest') {
-                return dailyShuffledRestaurants.length > 0 ? dailyShuffledRestaurants : pagedRestaurants;
-            }
-            return allRestaurants.length > 0 ? allRestaurants : pagedRestaurants;
-        }
-        // Không filter: hiển thị theo sort đang chọn
         if (sortBy === 'newest') {
-            // Lấy số lượng đúng bằng pagedRestaurants, nhưng lấy thứ tự từ dailyShuffled
-            const pagedIds = new Set(pagedRestaurants.map(r => r.id));
-            const sliced = dailyShuffledRestaurants.filter(r => pagedIds.has(r.id));
-            return sliced.length > 0 ? sliced : pagedRestaurants;
+            // Với sort 'newest': LUÔN dùng dailyShuffledRestaurants làm nguồn gốc.
+            // → Thứ tự nhất quán dù có filter hay không, không bao giờ jump.
+            // → Fallback về pagedRestaurants chỉ khi background load chưa xong.
+            const baseList = dailyShuffledRestaurants.length > 0
+                ? dailyShuffledRestaurants
+                : pagedRestaurants;
+
+            if (!hasFilters) {
+                // Không filter: giới hạn hiển thị đúng số lượng đã load (infinite scroll)
+                if (dailyShuffledRestaurants.length > 0 && pagedRestaurants.length > 0) {
+                    const pagedIds = new Set(pagedRestaurants.map(r => r.id));
+                    const visible = dailyShuffledRestaurants.filter(r => pagedIds.has(r.id));
+                    // Nếu visible khớp pagedIds hoàn toàn thì dùng, ngược lại dùng pagedRestaurants
+                    return visible.length === pagedRestaurants.length ? visible : pagedRestaurants;
+                }
+                return pagedRestaurants;
+            }
+            return baseList;
+        }
+
+        // Sort khác (rating, popular, oldest): dùng allRestaurants hoặc pagedRestaurants
+        if (hasFilters) {
+            return allRestaurants.length > 0 ? allRestaurants : pagedRestaurants;
         }
         return pagedRestaurants;
     }, [selectedRegions, selectedPriceRanges, selectedServices, selectedFoodTypes, isNew, searchKeyword, allRestaurants, pagedRestaurants, dailyShuffledRestaurants, sortBy]);
@@ -289,8 +353,29 @@ function ExplorePageContent() {
     };
     const getSortOrder = (sort: string): 'asc' | 'desc' => sort === 'oldest' ? 'asc' : 'desc';
 
+    // --- Ghi cache khi data thay đổi ---
+    useEffect(() => {
+        if (pagedRestaurants.length > 0) {
+            writeCache({
+                allRestaurants,
+                pagedRestaurants,
+                currentPage,
+                totalPages,
+                totalRestaurants,
+                hasMore,
+                sortBy,
+            });
+        }
+    }, [allRestaurants, pagedRestaurants, currentPage, totalPages, totalRestaurants, hasMore, sortBy]);
+
     // --- Fetch ALL restaurants (background) ---
     useEffect(() => {
+        // Nếu đã có cache với allRestaurants đầy đủ, bỏ qua background fetch
+        if (cachedState?.allRestaurants?.length) {
+            setAllRestaurantsLoaded(true);
+            setSearchLoading(false);
+            return;
+        }
         async function loadAll() {
             try {
                 const { restaurants: data } = await fetchRestaurantsWithPagination({ per_page: 200, page: 1 });
@@ -299,17 +384,23 @@ function ExplorePageContent() {
                 console.error('Error fetching all restaurants:', error);
             } finally {
                 setAllRestaurantsLoaded(true);
-                setSearchLoading(false); // Signal that search is ready when background fetch finishes
+                setSearchLoading(false);
             }
         }
         loadAll();
-    }, []);
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     // --- Fetch paged restaurants (infinite scroll, không có search) ---
     useEffect(() => {
-        if (searchKeyword.trim()) {
-            return; // Don't fetch paged list when searching; searchLoading handles visibility
+        if (searchKeyword.trim()) return;
+
+        // Nếu có cache hợp lệ cho sortBy này → dùng cache, không fetch lại
+        // (scroll restoration: component mount với data tức thì, không spinner)
+        if (cachedState && cachedState.sortBy === sortBy && cachedState.pagedRestaurants.length > 0) {
+            setLoading(false);
+            return;
         }
+
         async function fetchData() {
             setLoading(true);
             setCurrentPage(1);
@@ -319,12 +410,7 @@ function ExplorePageContent() {
                     orderby: getSortOrderBy(sortBy),
                     order: getSortOrder(sortBy)
                 });
-
-                // Khi sort = 'newest': KHÔNG shuffle bằng Math.random() ở đây.
-                // dailyShuffledRestaurants (useMemo) sẽ cung cấp thứ tự ổn định.
-                // Với các sort khác (rating, popular, oldest): dùng thứ tự từ API.
                 setPagedRestaurants(data);
-
                 setTotalRestaurants(total);
                 setTotalPages(pages);
                 setHasMore(pages > 1);
@@ -335,7 +421,7 @@ function ExplorePageContent() {
             }
         }
         fetchData();
-    }, [sortBy]);
+    }, [sortBy]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // --- Load more ---
     const loadMoreRestaurants = useCallback(async () => {
