@@ -15,11 +15,49 @@ import { Suspense } from 'react';
 
 const PER_PAGE = 18;
 
-// Fisher-Yates shuffle
-function shuffleArray<T>(array: T[]): T[] {
+// --- Daily Seeded Shuffle (không dùng Math.random()) ---
+
+/** Chuyển chuỗi ngày YYYY-MM-DD thành seed số nguyên (dùng thuật toán djb2) */
+function hashStringToSeed(str: string): number {
+    let hash = 5381;
+    for (let i = 0; i < str.length; i++) {
+        hash = (Math.imul(hash, 33) ^ str.charCodeAt(i)) >>> 0;
+    }
+    return hash >>> 0; // đảm bảo unsigned 32-bit
+}
+
+/** Mulberry32 PRNG – trả về closure tạo số float [0, 1) từ seed cố định */
+function createPRNG(seed: number): () => number {
+    let s = seed;
+    return function () {
+        s += 0x6d2b79f5;
+        let z = s;
+        z = Math.imul(z ^ (z >>> 15), z | 1);
+        z ^= z + Math.imul(z ^ (z >>> 7), z | 61);
+        z = ((z ^ (z >>> 14)) >>> 0) / 4294967296;
+        return z;
+    };
+}
+
+/** Lấy chuỗi ngày YYYY-MM-DD theo múi giờ Việt Nam +07:00 */
+function getVietnamDateSeed(): string {
+    const now = new Date();
+    // Dịch chuyển sang UTC+7
+    const vnOffset = 7 * 60; // phút
+    const utcMs = now.getTime() + now.getTimezoneOffset() * 60000;
+    const vnDate = new Date(utcMs + vnOffset * 60000);
+    const yyyy = vnDate.getFullYear();
+    const mm = String(vnDate.getMonth() + 1).padStart(2, '0');
+    const dd = String(vnDate.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+}
+
+/** Fisher-Yates shuffle có seeded PRNG – KHÔNG dùng Math.random() */
+function seededShuffle<T>(array: T[], seed: number): T[] {
     const arr = [...array];
+    const rng = createPRNG(seed);
     for (let i = arr.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
+        const j = Math.floor(rng() * (i + 1));
         [arr[i], arr[j]] = [arr[j], arr[i]];
     }
     return arr;
@@ -51,6 +89,10 @@ function ExplorePageContent() {
     const [sortBy, setSortBy] = useState<string>(() => searchParams.get('sort') || 'newest');
     const [searchKeyword, setSearchKeyword] = useState(() => searchParams.get('q') || '');
 
+    // --- Daily Seed (cố định theo ngày, múi giờ VN) ---
+    // Tính 1 lần lúc mount, sẽ không thay đổi cho đến ngày hôm sau.
+    const dailySeed = useMemo(() => getVietnamDateSeed(), []);
+
     // --- Data state ---
     const [allRestaurants, setAllRestaurants] = useState<Restaurant[]>([]);
     const [pagedRestaurants, setPagedRestaurants] = useState<Restaurant[]>([]);
@@ -68,6 +110,18 @@ function ExplorePageContent() {
     const [totalRestaurants, setTotalRestaurants] = useState(0);
     const [totalPages, setTotalPages] = useState(0);
     const [hasMore, setHasMore] = useState(false);
+
+    /**
+     * dailyShuffledRestaurants: Mảng xáo trộn CỐ ĐỊNH trong ngày.
+     * - Chỉ tính lại khi allRestaurants hoặc dailySeed thay đổi.
+     * - Khi sort = 'newest', đây là mảng gốc (base array) cho mọi filter.
+     * - DOM tuyệt đối ổn định → Scroll Restoration hoạt động khi nhấn Back.
+     */
+    const dailyShuffledRestaurants = useMemo(() => {
+        if (allRestaurants.length === 0) return [];
+        const seed = hashStringToSeed(dailySeed);
+        return seededShuffle(allRestaurants, seed);
+    }, [allRestaurants, dailySeed]);
 
     const sentinelRef = useRef<HTMLDivElement>(null);
 
@@ -188,12 +242,24 @@ function ExplorePageContent() {
             selectedServices.length > 0 ||
             selectedFoodTypes.length > 0 ||
             isNew || searchKeyword.trim().length >= 2;
-            
+
         if (hasFilters) {
+            // Khi có filter/search: dùng toàn bộ danh sách đã được seed hàng ngày
+            // (ổn định, không random lại) hoặc pagedRestaurants nếu chưa load xong.
+            if (sortBy === 'newest') {
+                return dailyShuffledRestaurants.length > 0 ? dailyShuffledRestaurants : pagedRestaurants;
+            }
             return allRestaurants.length > 0 ? allRestaurants : pagedRestaurants;
         }
+        // Không filter: hiển thị theo sort đang chọn
+        if (sortBy === 'newest') {
+            // Lấy số lượng đúng bằng pagedRestaurants, nhưng lấy thứ tự từ dailyShuffled
+            const pagedIds = new Set(pagedRestaurants.map(r => r.id));
+            const sliced = dailyShuffledRestaurants.filter(r => pagedIds.has(r.id));
+            return sliced.length > 0 ? sliced : pagedRestaurants;
+        }
         return pagedRestaurants;
-    }, [selectedRegions, selectedPriceRanges, selectedServices, selectedFoodTypes, isNew, searchKeyword, allRestaurants, pagedRestaurants]);
+    }, [selectedRegions, selectedPriceRanges, selectedServices, selectedFoodTypes, isNew, searchKeyword, allRestaurants, pagedRestaurants, dailyShuffledRestaurants, sortBy]);
 
     const searchedRestaurants = useMemo(() => {
         if (!searchKeyword.trim() || searchKeyword.trim().length < 2) return baseRestaurantsForFilter;
@@ -253,10 +319,12 @@ function ExplorePageContent() {
                     orderby: getSortOrderBy(sortBy),
                     order: getSortOrder(sortBy)
                 });
-                
-                // Shuffle danh sách ban đầu nếu sort là newer (mặc định)
-                setPagedRestaurants(sortBy === 'newest' ? shuffleArray(data) : data);
-                
+
+                // Khi sort = 'newest': KHÔNG shuffle bằng Math.random() ở đây.
+                // dailyShuffledRestaurants (useMemo) sẽ cung cấp thứ tự ổn định.
+                // Với các sort khác (rating, popular, oldest): dùng thứ tự từ API.
+                setPagedRestaurants(data);
+
                 setTotalRestaurants(total);
                 setTotalPages(pages);
                 setHasMore(pages > 1);
@@ -280,9 +348,9 @@ function ExplorePageContent() {
                 orderby: getSortOrderBy(sortBy),
                 order: getSortOrder(sortBy)
             });
-            // Shuffle trang tiếp theo thay vì chỉ nối đuôi nếu sort là newest
-            const processedData = sortBy === 'newest' ? shuffleArray(data) : data;
-            setPagedRestaurants(prev => [...prev, ...processedData]);
+            // Không shuffle trang tiếp theo bằng Math.random().
+            // Thứ tự 'newest' được xử lý bởi dailyShuffledRestaurants (useMemo).
+            setPagedRestaurants(prev => [...prev, ...data]);
             setCurrentPage(nextPage);
             setHasMore(nextPage < totalPages);
         } catch (error) {
