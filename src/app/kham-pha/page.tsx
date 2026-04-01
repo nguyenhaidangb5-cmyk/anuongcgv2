@@ -13,26 +13,31 @@ import { FirebaseRating } from '@/types/firebase';
 
 import { Suspense } from 'react';
 
-const PER_PAGE = 18;
+/**
+ * Số quán hiển thị mỗi lần "tải thêm" (client-side slice).
+ * Không còn là PER_PAGE gửi lên API nữa.
+ */
+const ITEMS_PER_PAGE = 18;
+
+/**
+ * Số quán tải từ API trong một lần gọi để lấy toàn bộ data.
+ * Đặt cao đủ để lấy hết trong 1–2 request.
+ */
+const API_BATCH = 200;
 
 // ---------------------------------------------------------------------------
 // sessionStorage cache – giúp Scroll Restoration hoạt động khi nhấn Back
 // ---------------------------------------------------------------------------
-const CACHE_KEY = 'kham-pha-cache-v3';
+const CACHE_KEY = 'kham-pha-cache-v4';
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 phút
 
 interface KhamPhaCache {
     allRestaurants: Restaurant[];
-    pagedRestaurants: Restaurant[];
-    currentPage: number;
-    totalPages: number;
     totalRestaurants: number;
-    hasMore: boolean;
-    sortBy: string;
     timestamp: number;
 }
 
-function readCache(sortBy: string): KhamPhaCache | null {
+function readCache(): KhamPhaCache | null {
     try {
         if (typeof window === 'undefined') return null;
         const raw = sessionStorage.getItem(CACHE_KEY);
@@ -42,7 +47,6 @@ function readCache(sortBy: string): KhamPhaCache | null {
             sessionStorage.removeItem(CACHE_KEY);
             return null;
         }
-        if (cache.sortBy !== sortBy) return null;
         return cache;
     } catch { return null; }
 }
@@ -81,35 +85,31 @@ function ExplorePageContent() {
     const [sortBy, setSortBy] = useState<string>(() => searchParams.get('sort') || 'newest');
     const [searchKeyword, setSearchKeyword] = useState(() => searchParams.get('q') || '');
 
-    // Đọc cache sớm nhất có thể để dùng làm initial state
-    const initialSortBy = searchParams.get('sort') || 'newest';
-    const cachedState = useMemo(() => readCache(initialSortBy), []); // eslint-disable-line react-hooks/exhaustive-deps
+    // Đọc cache khi mount (đồng bộ, an toàn vì "use client")
+    const cachedState = useMemo(() => readCache(), []); // eslint-disable-line react-hooks/exhaustive-deps
 
-    // --- Data state – khởi tạo từ cache nếu có (scroll restoration) ---
+    // ===========================================================================
+    // DATA STATE – Chỉ có 1 nguồn dữ liệu duy nhất: allRestaurants
+    // Mọi filter / sort / paginate đều thực hiện trên client từ mảng này.
+    // ===========================================================================
     const [allRestaurants, setAllRestaurants] = useState<Restaurant[]>(
         () => cachedState?.allRestaurants ?? []
     );
-    const [pagedRestaurants, setPagedRestaurants] = useState<Restaurant[]>(
-        () => cachedState?.pagedRestaurants ?? []
+    const [totalRestaurants, setTotalRestaurants] = useState(
+        () => cachedState?.totalRestaurants ?? 0
     );
-    const [loading, setLoading] = useState(
-        () => !cachedState
-    );
-    const [searchLoading, setSearchLoading] = useState(() => !!(searchParams.get('q') || ''));
-    const [loadingMore, setLoadingMore] = useState(false);
-    const [allRestaurantsLoaded, setAllRestaurantsLoaded] = useState(
-        () => !!(cachedState?.allRestaurants?.length)
-    );
+    const [loading, setLoading] = useState(() => !cachedState);
     const [showMobileFilter, setShowMobileFilter] = useState(false);
 
     // Firebase ratings: map restaurantId -> { totalScore, count }
     const [ratingsMap, setRatingsMap] = useState<Record<number, FirebaseRating>>({});
 
-    // Pagination
-    const [currentPage, setCurrentPage] = useState(() => cachedState?.currentPage ?? 1);
-    const [totalRestaurants, setTotalRestaurants] = useState(() => cachedState?.totalRestaurants ?? 0);
-    const [totalPages, setTotalPages] = useState(() => cachedState?.totalPages ?? 0);
-    const [hasMore, setHasMore] = useState(() => cachedState?.hasMore ?? false);
+    /**
+     * visibleCount: Số quán đang hiển thị (client-side pagination).
+     * IntersectionObserver tăng state này thay vì gọi API thêm.
+     */
+    const [visibleCount, setVisibleCount] = useState(ITEMS_PER_PAGE);
+    const [loadingMore, setLoadingMore] = useState(false);
 
     const sentinelRef = useRef<HTMLDivElement>(null);
 
@@ -189,7 +189,7 @@ function ExplorePageContent() {
         // Cập nhật URL ?sort=... mà KHÔNG xóa các tham số lọc khác
         syncUrl({ sort: val });
     };
-    // Debounce ref để tránh spam URL update khi người dùng đang gõ nhanh
+
     const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const handleSearch = (val: string) => {
         setSearchKeyword(val);
@@ -207,7 +207,7 @@ function ExplorePageContent() {
         syncUrl({ regions: null, prices: null, services: null, food_types: null, is_new: null });
     };
 
-    // --- Fuse.js ---
+    // --- Fuse.js – chỉ build khi allRestaurants thay đổi ---
     const fuse = useMemo(() => {
         if (allRestaurants.length === 0) return null;
         return new Fuse(allRestaurants, {
@@ -229,43 +229,20 @@ function ExplorePageContent() {
     }, [allRestaurants]);
 
     // ===========================================================================
-    // PIPELINE CHUẨN: 2 Bước độc lập – Filter → Sort
+    // PIPELINE CHUẨN: 3 Bước tuần tự – Filter → Sort → Slice
     // ===========================================================================
 
     /**
-     * BƯỚC 0: Chọn nguồn dữ liệu gốc.
-     * - Khi có filter/search: dùng allRestaurants (đầy đủ) nếu đã tải, ngược lại dùng pagedRestaurants.
-     * - Khi không có filter/search: dùng pagedRestaurants (infinite scroll).
-     */
-    const hasActiveFiltersOrSearch = useMemo(() =>
-        selectedRegions.length > 0 ||
-        selectedPriceRanges.length > 0 ||
-        selectedServices.length > 0 ||
-        selectedFoodTypes.length > 0 ||
-        isNew ||
-        searchKeyword.trim().length >= 2,
-        [selectedRegions, selectedPriceRanges, selectedServices, selectedFoodTypes, isNew, searchKeyword]
-    );
-
-    const sourceRestaurants = useMemo(() => {
-        if (hasActiveFiltersOrSearch) {
-            return allRestaurants.length > 0 ? allRestaurants : pagedRestaurants;
-        }
-        return pagedRestaurants;
-    }, [hasActiveFiltersOrSearch, allRestaurants, pagedRestaurants]);
-
-    /**
      * BƯỚC 1 – LỌC (Filter):
-     * Áp dụng tất cả điều kiện lọc (khu vực, giá, tiện ích, loại hình, tìm kiếm)
-     * lên sourceRestaurants để tạo filteredArray.
-     * Không có bất kỳ logic sắp xếp nào ở đây.
+     * Áp dụng tất cả điều kiện lọc (keyword, khu vực, giá, tiện ích, loại hình)
+     * lên toàn bộ allRestaurants.
+     * KHÔNG có logic sắp xếp hay cắt mảng ở đây.
      */
-    const filteredArray = useMemo(() => {
-        let result = sourceRestaurants;
+    const filteredData = useMemo(() => {
+        let result = allRestaurants;
 
-        // Tìm kiếm Fuse.js (ưu tiên keyword search trước)
+        // Tìm kiếm Fuse.js
         if (searchKeyword.trim().length >= 2) {
-            if (allRestaurants.length === 0) return []; // Chờ tải xong
             const normalizedKeyword = normalizeVietnameseString(searchKeyword);
             let searchResults: Restaurant[] = [];
             if (fuse) searchResults = fuse.search(normalizedKeyword).map(r => r.item);
@@ -335,21 +312,20 @@ function ExplorePageContent() {
 
         return result;
     }, [
-        sourceRestaurants, searchKeyword, allRestaurants, fuse,
+        allRestaurants, searchKeyword, fuse,
         selectedRegions, selectedPriceRanges, selectedServices, selectedFoodTypes, isNew
     ]);
 
     /**
      * BƯỚC 2 – SẮP XẾP (Sort):
-     * Áp dụng logic của Dropdown Sắp xếp lên BẢN SAO của filteredArray.
-     * TUYỆT ĐỐI không mutate mảng gốc (.sort() trên [...filteredArray]).
-     * Đây là mảng cuối cùng đem đi render.
+     * Áp dụng logic of Dropdown lên BẢN SAO của filteredData.
+     * [...filteredData].sort(...) – KHÔNG mutate mảng gốc.
+     * Sort trên TOÀN BỘ mảng đã lọc, không phải trên slice.
      */
-    const displayRestaurants = useMemo(() => {
-        const arr = [...filteredArray];
+    const sortedData = useMemo(() => {
+        const arr = [...filteredData];
         switch (sortBy) {
             case 'newest':
-                // Quán mới nhất (id lớn nhất) xếp trên
                 return arr.sort((a, b) => {
                     const dateA = a.date ? new Date(a.date).getTime() : 0;
                     const dateB = b.date ? new Date(b.date).getTime() : 0;
@@ -358,7 +334,6 @@ function ExplorePageContent() {
                 });
 
             case 'oldest':
-                // Quán cũ nhất (id nhỏ nhất) xếp trên
                 return arr.sort((a, b) => {
                     const dateA = a.date ? new Date(a.date).getTime() : 0;
                     const dateB = b.date ? new Date(b.date).getTime() : 0;
@@ -366,8 +341,7 @@ function ExplorePageContent() {
                     return (a.id ?? 0) - (b.id ?? 0);
                 });
 
-            case 'highest_rated': {
-                // Điểm cao xếp trên; quán chưa có điểm (null/0) bị đẩy xuống cuối
+            case 'highest_rated':
                 return arr.sort((a, b) => {
                     const ratingA = ratingsMap[a.id]?.totalScore && ratingsMap[a.id]?.count
                         ? ratingsMap[a.id].totalScore / ratingsMap[a.id].count
@@ -376,19 +350,16 @@ function ExplorePageContent() {
                         ? ratingsMap[b.id].totalScore / ratingsMap[b.id].count
                         : null;
                     if (ratingA === null && ratingB === null) return 0;
-                    if (ratingA === null) return 1;   // a không điểm → xuống dưới
-                    if (ratingB === null) return -1;  // b không điểm → xuống dưới
+                    if (ratingA === null) return 1;
+                    if (ratingB === null) return -1;
                     return ratingB - ratingA;
                 });
-            }
 
             case 'popular':
-                // Phổ biến: dựa vào views hoặc reviewCount (nhiều hơn lên trên)
                 return arr.sort((a, b) => {
                     const viewsA = (a as Restaurant & { views?: number }).views ?? 0;
                     const viewsB = (b as Restaurant & { views?: number }).views ?? 0;
                     if (viewsB !== viewsA) return viewsB - viewsA;
-                    // Tie-break: số lượng đánh giá Firebase
                     const countA = ratingsMap[a.id]?.count ?? 0;
                     const countB = ratingsMap[b.id]?.count ?? 0;
                     return countB - countA;
@@ -397,130 +368,112 @@ function ExplorePageContent() {
             default:
                 return arr;
         }
-    }, [filteredArray, sortBy, ratingsMap]);
+    }, [filteredData, sortBy, ratingsMap]);
+
+    /**
+     * BƯỚC 3 – PHÂN TRANG CLIENT (Slice):
+     * Cắt sortedData theo visibleCount để render.
+     * Đây là mảng cuối cùng đem đi render.
+     */
+    const visibleData = useMemo(
+        () => sortedData.slice(0, visibleCount),
+        [sortedData, visibleCount]
+    );
+
+    /**
+     * Có thêm data để hiển thị không?
+     * Đây là điều kiện duy nhất để IntersectionObserver trigger.
+     */
+    const hasMore = visibleData.length < sortedData.length;
 
     // ===========================================================================
 
-    // --- Ghi cache khi data thay đổi ---
+    /**
+     * Reset visibleCount về ITEMS_PER_PAGE mỗi khi sortBy, filter, hoặc search thay đổi.
+     * Đảm bảo sau khi đổi sort/filter, luôn bắt đầu từ đầu danh sách.
+     */
     useEffect(() => {
-        if (pagedRestaurants.length > 0) {
-            writeCache({
-                allRestaurants,
-                pagedRestaurants,
-                currentPage,
-                totalPages,
-                totalRestaurants,
-                hasMore,
-                sortBy,
-            });
-        }
-    }, [allRestaurants, pagedRestaurants, currentPage, totalPages, totalRestaurants, hasMore, sortBy]);
+        setVisibleCount(ITEMS_PER_PAGE);
+    }, [
+        sortBy,
+        selectedRegions, selectedPriceRanges, selectedServices, selectedFoodTypes,
+        isNew, searchKeyword
+    ]);
 
-    // --- Fetch ALL restaurants (background) ---
+    // --- Fetch toàn bộ restaurants (1 lần duy nhất khi mount) ---
     useEffect(() => {
+        // Nếu đã có cache hợp lệ thì dùng, không fetch lại
         if (cachedState?.allRestaurants?.length) {
-            setAllRestaurantsLoaded(true);
-            setSearchLoading(false);
+            setLoading(false);
             return;
         }
+
         async function loadAll() {
+            setLoading(true);
             try {
-                const { restaurants: data } = await fetchRestaurantsWithPagination({ per_page: 200, page: 1 });
-                setAllRestaurants(data);
+                // Tải trang đầu để biết totalPages
+                const { restaurants: firstBatch, total, totalPages } = await fetchRestaurantsWithPagination({
+                    per_page: API_BATCH, page: 1,
+                    orderby: 'date', order: 'desc'
+                });
+
+                let collected = [...firstBatch];
+
+                // Nếu còn nhiều trang, fetch song song
+                if (totalPages > 1) {
+                    const pageNums = Array.from({ length: totalPages - 1 }, (_, i) => i + 2);
+                    const rest = await Promise.all(
+                        pageNums.map(p =>
+                            fetchRestaurantsWithPagination({ per_page: API_BATCH, page: p, orderby: 'date', order: 'desc' })
+                                .then(r => r.restaurants)
+                                .catch(() => [] as Restaurant[])
+                        )
+                    );
+                    collected = [...collected, ...rest.flat()];
+                }
+
+                setAllRestaurants(collected);
+                setTotalRestaurants(total);
+                writeCache({ allRestaurants: collected, totalRestaurants: total });
             } catch (error) {
                 console.error('Error fetching all restaurants:', error);
             } finally {
-                setAllRestaurantsLoaded(true);
-                setSearchLoading(false);
+                setLoading(false);
             }
         }
         loadAll();
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-    // --- Fetch trang đầu theo sortBy ---
-    useEffect(() => {
-        if (cachedState && cachedState.sortBy === sortBy && cachedState.pagedRestaurants.length > 0) {
-            setLoading(false);
-            return;
-        }
-
-        /**
-         * Map sortBy (client) sang orderby/order (API WordPress).
-         * 'highest_rated' và 'popular' không có endpoint API tương ứng → tải theo date desc
-         * rồi để client-side sort xử lý.
-         */
-        const getApiParams = (sort: string): { orderby: 'date' | 'rating' | 'view_count'; order: 'asc' | 'desc' } => {
-            switch (sort) {
-                case 'oldest': return { orderby: 'date', order: 'asc' };
-                case 'highest_rated': return { orderby: 'date', order: 'desc' }; // client sort
-                case 'popular': return { orderby: 'date', order: 'desc' };       // client sort
-                case 'newest':
-                default: return { orderby: 'date', order: 'desc' };
-            }
-        };
-
-        async function fetchData() {
-            setLoading(true);
-            setCurrentPage(1);
-            try {
-                const { orderby, order } = getApiParams(sortBy);
-                const { restaurants: data, total, totalPages: pages } = await fetchRestaurantsWithPagination({
-                    per_page: PER_PAGE, page: 1,
-                    orderby,
-                    order
-                });
-                setPagedRestaurants(data);
-                setTotalRestaurants(total);
-                setTotalPages(pages);
-                setHasMore(pages > 1);
-            } catch (error) {
-                console.error('Error fetching:', error);
-            } finally {
-                setLoading(false);
-            }
-        }
-        fetchData();
-    }, [sortBy]); // eslint-disable-line react-hooks/exhaustive-deps
-
-    // --- Load more (infinite scroll) ---
-    const loadMoreRestaurants = useCallback(async () => {
-        if (loadingMore || !hasMore || searchKeyword.trim()) return;
+    // --- Tải thêm (client-side): chỉ tăng visibleCount ---
+    const loadMore = useCallback(() => {
+        if (loadingMore || !hasMore) return;
         setLoadingMore(true);
-        try {
-            const nextPage = currentPage + 1;
-            const getApiParams = (sort: string): { orderby: 'date' | 'rating' | 'view_count'; order: 'asc' | 'desc' } => {
-                switch (sort) {
-                    case 'oldest': return { orderby: 'date', order: 'asc' };
-                    default: return { orderby: 'date', order: 'desc' };
-                }
-            };
-            const { orderby, order } = getApiParams(sortBy);
-            const { restaurants: data } = await fetchRestaurantsWithPagination({
-                per_page: PER_PAGE, page: nextPage,
-                orderby,
-                order
-            });
-            setPagedRestaurants(prev => [...prev, ...data]);
-            setCurrentPage(nextPage);
-            setHasMore(nextPage < totalPages);
-        } catch (error) {
-            console.error('Error loading more:', error);
-        } finally {
+        // Dùng setTimeout để không block frame render
+        setTimeout(() => {
+            setVisibleCount(prev => prev + ITEMS_PER_PAGE);
             setLoadingMore(false);
-        }
-    }, [loadingMore, hasMore, searchKeyword, currentPage, totalPages, sortBy]);
+        }, 0);
+    }, [loadingMore, hasMore]);
 
-    // --- IntersectionObserver ---
+    // --- IntersectionObserver trigger loadMore ---
     useEffect(() => {
         const sentinel = sentinelRef.current;
         if (!sentinel) return;
         const observer = new IntersectionObserver(
-            (entries) => { if (entries[0].isIntersecting) loadMoreRestaurants(); },
-            { rootMargin: '200px' }
+            (entries) => { if (entries[0].isIntersecting) loadMore(); },
+            { rootMargin: '300px' }
         );
         observer.observe(sentinel);
         return () => observer.disconnect();
-    }, [loadMoreRestaurants]);
+    }, [loadMore]);
+
+    const hasActiveFiltersOrSearch =
+        selectedRegions.length > 0 ||
+        selectedPriceRanges.length > 0 ||
+        selectedServices.length > 0 ||
+        selectedFoodTypes.length > 0 ||
+        isNew ||
+        searchKeyword.trim().length >= 2;
 
     // Sidebar filter JSX (dùng lại cả desktop + mobile)
     const filterSidebar = (
@@ -647,8 +600,8 @@ function ExplorePageContent() {
                     </h1>
                     <p className="text-sm md:text-base text-gray-600">
                         {searchKeyword.trim()
-                            ? <><span className="font-bold text-orange-600">{displayRestaurants.length}</span> quán cho &ldquo;{searchKeyword}&rdquo;</>
-                            : <>Tìm thấy <span className="font-bold text-orange-600">{totalRestaurants}</span> quán ăn</>
+                            ? <><span className="font-bold text-orange-600">{sortedData.length}</span> quán cho &ldquo;{searchKeyword}&rdquo;</>
+                            : <>Tìm thấy <span className="font-bold text-orange-600">{totalRestaurants || allRestaurants.length}</span> quán ăn</>
                         }
                     </p>
                 </div>
@@ -673,7 +626,7 @@ function ExplorePageContent() {
                         {/* Sort & Results */}
                         <div className="flex items-center justify-between mb-6">
                             <p className="text-sm text-gray-600">
-                                {loading || searchLoading ? 'Đang tải...' : `${displayRestaurants.length} kết quả`}
+                                {loading ? 'Đang tải...' : `${sortedData.length} kết quả`}
                             </p>
                             <select
                                 value={sortBy}
@@ -693,15 +646,10 @@ function ExplorePageContent() {
                                 <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-orange-500 mx-auto"></div>
                                 <p className="mt-4 text-gray-600">Đang tải dữ liệu...</p>
                             </div>
-                        ) : (hasActiveFiltersOrSearch && !allRestaurantsLoaded) ? (
-                            <div className="text-center py-20">
-                                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-orange-400 mx-auto"></div>
-                                <p className="mt-4 text-gray-500 text-sm">Đang tìm dữ liệu phù hợp...</p>
-                            </div>
-                        ) : displayRestaurants.length > 0 ? (
+                        ) : visibleData.length > 0 ? (
                             <>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                                    {displayRestaurants.map((restaurant) => (
+                                    {visibleData.map((restaurant) => (
                                         <RestaurantCard
                                             key={restaurant.id}
                                             data={restaurant}
@@ -710,6 +658,7 @@ function ExplorePageContent() {
                                     ))}
                                 </div>
 
+                                {/* Sentinel: trigger khi scroll đến cuối */}
                                 <div ref={sentinelRef} className="mt-8 flex justify-center min-h-[48px] items-center">
                                     {loadingMore && (
                                         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500" />
@@ -750,7 +699,7 @@ function ExplorePageContent() {
                                 onClick={() => setShowMobileFilter(false)}
                                 className="w-full bg-orange-500 text-white font-bold py-3 rounded-xl shadow-lg shadow-orange-200"
                             >
-                                Áp dụng ({displayRestaurants.length} quán)
+                                Áp dụng ({sortedData.length} quán)
                             </button>
                         </div>
                     </div>
