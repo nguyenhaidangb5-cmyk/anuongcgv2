@@ -22,6 +22,28 @@ export const metadata: Metadata = {
     icon: "/icon-512x512.png",
     apple: "/icon-192x192.png",
   },
+  openGraph: {
+    title: "Ẩm thực Cần Giuộc Review",
+    description: "Khám phá ẩm thực Cần Giuộc - Review quán ăn, tìm món ngon gần bạn",
+    url: "https://anuongcangiuoc.org/",
+    siteName: "Ăn Uống Cần Giuộc",
+    images: [
+      {
+        url: "https://images.unsplash.com/photo-1504674900247-0877df9cc836?q=80&w=1200&h=630&auto=format&fit=crop",
+        width: 1200,
+        height: 630,
+        alt: "Tinh hoa Ẩm thực Cần Giuộc",
+      },
+    ],
+    locale: "vi_VN",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Ẩm thực Cần Giuộc Review",
+    description: "Khám phá ẩm thực Cần Giuộc - Review quán ăn, tìm món ngon gần bạn",
+    images: ["https://images.unsplash.com/photo-1504674900247-0877df9cc836?q=80&w=1200&h=630&auto=format&fit=crop"],
+  },
 };
 
 export default function RootLayout({
