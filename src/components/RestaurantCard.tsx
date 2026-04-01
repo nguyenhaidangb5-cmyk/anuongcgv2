@@ -70,6 +70,9 @@ export const RestaurantCard: React.FC<RestaurantCardProps> = ({ data, firebaseRa
         <Link
             href={`/quan-an/${data.slug}`}
             className="group bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex flex-row md:flex-col h-28 md:h-full overflow-hidden block"
+            onClick={() => {
+                try { sessionStorage.setItem('khamPha_scrollY', String(Math.round(window.scrollY))); } catch { /* ignore */ }
+            }}
         >
             {/* Image Container */}
             <div className="relative w-28 md:w-full h-full md:h-48 flex-shrink-0">

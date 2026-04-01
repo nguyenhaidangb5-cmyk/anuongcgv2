@@ -19,6 +19,18 @@ import { Suspense } from 'react';
  */
 const ITEMS_PER_PAGE = 18;
 const SS_VISIBLE_COUNT_KEY = 'khamPha_visibleCount';
+const SS_SCROLL_Y_KEY = 'khamPha_scrollY';
+
+/** Đọc visibleCount từ sessionStorage đồng bộ (an toàn ở "use client"). */
+function readSavedVisibleCount(): number {
+    try {
+        if (typeof window === 'undefined') return ITEMS_PER_PAGE;
+        const v = sessionStorage.getItem(SS_VISIBLE_COUNT_KEY);
+        if (!v) return ITEMS_PER_PAGE;
+        const n = parseInt(v, 10);
+        return !isNaN(n) && n > ITEMS_PER_PAGE ? n : ITEMS_PER_PAGE;
+    } catch { return ITEMS_PER_PAGE; }
+}
 
 /**
  * Số quán tải từ API trong một lần gọi để lấy toàn bộ data.
@@ -107,26 +119,41 @@ function ExplorePageContent() {
 
     /**
      * visibleCount: Số quán đang hiển thị (client-side pagination).
-     * Khởi tạo bằng hằng số (không đọc sessionStorage ở đây để tránh Hydration Mismatch).
-     * Giá trị thực từ sessionStorage được restore trong useEffect bên dưới.
+     * Khởi tạo ĐỒNG BỘ từ sessionStorage – vì đây là "use client", không có SSR
+     * cho nội dung này (loading=true che khuất grid khi server render).
+     * Cách này đảm bảo DOM render đủ cao ngay từ lần render đầu tiên sau mount,
+     * cho phép scroll restoration thủ công hoạt động chính xác.
      */
-    const [visibleCount, setVisibleCount] = useState(ITEMS_PER_PAGE);
+    const [visibleCount, setVisibleCount] = useState(() => readSavedVisibleCount());
     const [loadingMore, setLoadingMore] = useState(false);
-
-    // --- Restore visibleCount từ sessionStorage khi mount (scroll restoration) ---
-    useEffect(() => {
-        try {
-            const saved = sessionStorage.getItem(SS_VISIBLE_COUNT_KEY);
-            if (saved) {
-                const parsed = parseInt(saved, 10);
-                if (!isNaN(parsed) && parsed > ITEMS_PER_PAGE) {
-                    setVisibleCount(parsed);
-                }
-            }
-        } catch { /* ignore */ }
-    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    const scrollRestored = useRef(false);
 
     const sentinelRef = useRef<HTMLDivElement>(null);
+
+    /**
+     * MANUAL SCROLL RESTORATION:
+     * Sau khi cả allRestaurants lẫn visibleCount đã sẵn sàng (DOM đủ cao),
+     * đọc scrollY đã lưu và cuộn về đúng vị trí.
+     * Chỉ thực hiện 1 lần duy nhất sau khi back (scrollRestored ref).
+     */
+    useEffect(() => {
+        if (scrollRestored.current) return;
+        if (allRestaurants.length === 0) return; // Chưa có data
+        const savedScrollY = (() => {
+            try {
+                const v = sessionStorage.getItem(SS_SCROLL_Y_KEY);
+                return v ? parseInt(v, 10) : null;
+            } catch { return null; }
+        })();
+        if (savedScrollY === null || savedScrollY === 0) return;
+        // Dùng requestAnimationFrame để chắc chắn DOM đã paint xong
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                window.scrollTo({ top: savedScrollY, behavior: 'instant' });
+                scrollRestored.current = true;
+            });
+        });
+    }, [allRestaurants]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // --- Firebase: fetch toàn bộ ratings một lần ---
     useEffect(() => {
@@ -405,8 +432,8 @@ function ExplorePageContent() {
 
     /**
      * Reset visibleCount về ITEMS_PER_PAGE mỗi khi sortBy, filter, hoặc search thay đổi.
-     * Đồng thời reset sessionStorage để scroll restoration không bị lệch.
-     * Bỏ qua lần chạy đầu tiên (mount) – lúc đó useEffect restore đang xử lý.
+     * Đồng thời xóa cả scrollY đã lưu – user đang lọc/sắp xếp mới, không cần restore.
+     * Bỏ qua lần chạy đầu tiên (mount) – lúc đó restore logic đang xử lý.
      */
     const isFirstRender = useRef(true);
     useEffect(() => {
@@ -415,12 +442,17 @@ function ExplorePageContent() {
             return;
         }
         setVisibleCount(ITEMS_PER_PAGE);
-        try { sessionStorage.setItem(SS_VISIBLE_COUNT_KEY, String(ITEMS_PER_PAGE)); } catch { /* ignore */ }
+        scrollRestored.current = true; // Không restore scroll cho session mới (filter/sort)
+        try {
+            sessionStorage.setItem(SS_VISIBLE_COUNT_KEY, String(ITEMS_PER_PAGE));
+            sessionStorage.removeItem(SS_SCROLL_Y_KEY); // Xóa scroll cũ
+        } catch { /* ignore */ }
     }, [
         sortBy,
         selectedRegions, selectedPriceRanges, selectedServices, selectedFoodTypes,
         isNew, searchKeyword
     ]);
+
 
     // --- Fetch toàn bộ restaurants (1 lần duy nhất khi mount) ---
     useEffect(() => {
