@@ -255,9 +255,14 @@ function ExplorePageContent() {
         setSortBy(val);
         syncUrl({ sort: val });
     };
+    // Debounce ref để tránh spam URL update khi người dùng đang gõ nhanh
+    const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const handleSearch = (val: string) => {
-        setSearchKeyword(val);
-        syncUrl({ q: val });
+        setSearchKeyword(val); // Cập nhật state ngay để input mượt
+        if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+        searchDebounceRef.current = setTimeout(() => {
+            syncUrl({ q: val }); // Chỉ cập nhật URL sau 350ms ngừng gõ
+        }, 350);
     };
     const clearAllFilters = () => {
         setSelectedRegions([]);

@@ -144,8 +144,9 @@ export async function fetchRestaurantBySlug(slug: string): Promise<Restaurant | 
     const url = `${API_URL}/wp/v2/quan_an?slug=${slug}&_embed=1`;
 
     try {
+        // Cache 1 giờ: Vercel CDN gánh toàn bộ traffic, WP chỉ bị gọi tối đa 1 lần/giờ/slug
         const response = await fetch(url, {
-            next: { revalidate: 10 }
+            next: { revalidate: 3600 }
         });
 
         if (!response.ok) {
@@ -168,6 +169,31 @@ export async function fetchRestaurantBySlug(slug: string): Promise<Restaurant | 
     } catch (error) {
         console.error('Fetch error:', error);
         return null;
+    }
+}
+
+/**
+ * Fetch tất cả slugs quán ăn để dùng trong generateStaticParams
+ * Build-time only: lấy tối đa 500 quán
+ */
+export async function fetchAllRestaurantSlugs(): Promise<string[]> {
+    const url = `${API_URL}/wp/v2/quan_an?per_page=500&page=1&_fields=slug`;
+
+    try {
+        const response = await fetch(url, {
+            next: { revalidate: 3600 }
+        });
+
+        if (!response.ok) {
+            console.error('fetchAllRestaurantSlugs error:', response.status);
+            return [];
+        }
+
+        const data = await response.json();
+        return (data as { slug: string }[]).map((r) => r.slug).filter(Boolean);
+    } catch (error) {
+        console.error('fetchAllRestaurantSlugs error:', error);
+        return [];
     }
 }
 
@@ -288,8 +314,9 @@ export async function fetchStickyRestaurants(limit: number = 8): Promise<Restaur
     const url = `${API_URL}/wp/v2/quan_an?sticky=true&per_page=${limit}&_embed=1`;
 
     try {
+        // Cache 1 giờ để bảo vệ WordPress server khỏi bị spam
         const response = await fetch(url, {
-            next: { revalidate: 10 }
+            next: { revalidate: 3600 }
         });
 
         if (!response.ok) {
