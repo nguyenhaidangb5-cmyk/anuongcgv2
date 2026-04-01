@@ -68,6 +68,10 @@ export interface Restaurant {
     food_type_names?: string[];
     region_names?: string[];
 
+    // WordPress post metadata
+    date?: string;        // ISO 8601, ví dụ: "2024-03-15T08:00:00" – dùng để sort newest/oldest
+    views?: number;       // View count – dùng để sort popular
+
     // Legacy/Helper fields (giữ lại nếu code cũ còn dùng)
     region?: string;
     priceRange?: string; // alias cũ của price_range

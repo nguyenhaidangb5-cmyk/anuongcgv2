@@ -18,6 +18,7 @@ import { Suspense } from 'react';
  * Không còn là PER_PAGE gửi lên API nữa.
  */
 const ITEMS_PER_PAGE = 18;
+const SS_VISIBLE_COUNT_KEY = 'khamPha_visibleCount';
 
 /**
  * Số quán tải từ API trong một lần gọi để lấy toàn bộ data.
@@ -106,10 +107,24 @@ function ExplorePageContent() {
 
     /**
      * visibleCount: Số quán đang hiển thị (client-side pagination).
-     * IntersectionObserver tăng state này thay vì gọi API thêm.
+     * Khởi tạo bằng hằng số (không đọc sessionStorage ở đây để tránh Hydration Mismatch).
+     * Giá trị thực từ sessionStorage được restore trong useEffect bên dưới.
      */
     const [visibleCount, setVisibleCount] = useState(ITEMS_PER_PAGE);
     const [loadingMore, setLoadingMore] = useState(false);
+
+    // --- Restore visibleCount từ sessionStorage khi mount (scroll restoration) ---
+    useEffect(() => {
+        try {
+            const saved = sessionStorage.getItem(SS_VISIBLE_COUNT_KEY);
+            if (saved) {
+                const parsed = parseInt(saved, 10);
+                if (!isNaN(parsed) && parsed > ITEMS_PER_PAGE) {
+                    setVisibleCount(parsed);
+                }
+            }
+        } catch { /* ignore */ }
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     const sentinelRef = useRef<HTMLDivElement>(null);
 
@@ -357,8 +372,8 @@ function ExplorePageContent() {
 
             case 'popular':
                 return arr.sort((a, b) => {
-                    const viewsA = (a as Restaurant & { views?: number }).views ?? 0;
-                    const viewsB = (b as Restaurant & { views?: number }).views ?? 0;
+                    const viewsA = a.views ?? 0;
+                    const viewsB = b.views ?? 0;
                     if (viewsB !== viewsA) return viewsB - viewsA;
                     const countA = ratingsMap[a.id]?.count ?? 0;
                     const countB = ratingsMap[b.id]?.count ?? 0;
@@ -390,10 +405,17 @@ function ExplorePageContent() {
 
     /**
      * Reset visibleCount về ITEMS_PER_PAGE mỗi khi sortBy, filter, hoặc search thay đổi.
-     * Đảm bảo sau khi đổi sort/filter, luôn bắt đầu từ đầu danh sách.
+     * Đồng thời reset sessionStorage để scroll restoration không bị lệch.
+     * Bỏ qua lần chạy đầu tiên (mount) – lúc đó useEffect restore đang xử lý.
      */
+    const isFirstRender = useRef(true);
     useEffect(() => {
+        if (isFirstRender.current) {
+            isFirstRender.current = false;
+            return;
+        }
         setVisibleCount(ITEMS_PER_PAGE);
+        try { sessionStorage.setItem(SS_VISIBLE_COUNT_KEY, String(ITEMS_PER_PAGE)); } catch { /* ignore */ }
     }, [
         sortBy,
         selectedRegions, selectedPriceRanges, selectedServices, selectedFoodTypes,
@@ -444,13 +466,16 @@ function ExplorePageContent() {
         loadAll();
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-    // --- Tải thêm (client-side): chỉ tăng visibleCount ---
+    // --- Tải thêm (client-side): tăng visibleCount và lưu vào sessionStorage ---
     const loadMore = useCallback(() => {
         if (loadingMore || !hasMore) return;
         setLoadingMore(true);
-        // Dùng setTimeout để không block frame render
         setTimeout(() => {
-            setVisibleCount(prev => prev + ITEMS_PER_PAGE);
+            setVisibleCount(prev => {
+                const next = prev + ITEMS_PER_PAGE;
+                try { sessionStorage.setItem(SS_VISIBLE_COUNT_KEY, String(next)); } catch { /* ignore */ }
+                return next;
+            });
             setLoadingMore(false);
         }, 0);
     }, [loadingMore, hasMore]);
