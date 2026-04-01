@@ -395,9 +395,7 @@ function ExplorePageContent() {
         loadAll();
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-    // --- Fetch paged restaurants (infinite scroll, không có search) ---
     useEffect(() => {
-        if (searchKeyword.trim()) return;
 
         // Nếu có cache hợp lệ cho sortBy này → dùng cache, không fetch lại
         // (scroll restoration: component mount với data tức thì, không spinner)
