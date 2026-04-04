@@ -9,20 +9,13 @@ declare global {
       XFBML: {
         parse: (element?: HTMLElement | null) => void;
       };
-      init: (params: {
-        appId?: string;
-        xfbml: boolean;
-        version: string;
-      }) => void;
     };
     fbAsyncInit?: () => void;
   }
 }
 
 interface FacebookCommentsProps {
-  /** URL đầy đủ của trang, dùng để khớp đúng luồng comment */
   url: string;
-  /** Số bình luận hiển thị ban đầu (mặc định: 5) */
   numPosts?: number;
 }
 
@@ -32,21 +25,14 @@ export default function FacebookComments({
 }: FacebookCommentsProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
-  /**
-   * Khi url thay đổi (chuyển giữa các quán trong cùng phiên),
-   * gọi FB.XFBML.parse() để render lại widget với URL mới.
-   */
+  // Gọi parse lại khi chuyển trang (slug thay đổi)
   useEffect(() => {
     if (typeof window !== "undefined" && window.FB) {
       window.FB.XFBML.parse(containerRef.current);
     }
   }, [url]);
 
-  /**
-   * Callback được gọi sau khi FB SDK tải xong.
-   * Mục đích: đảm bảo .fb-comments được parse ngay cả khi
-   * SDK load sau khi component đã mount (trường hợp navigation).
-   */
+  // Callback sau khi SDK load xong - trigger parse thủ công
   const handleSdkLoad = () => {
     if (typeof window !== "undefined" && window.FB) {
       window.FB.XFBML.parse(containerRef.current);
@@ -55,13 +41,6 @@ export default function FacebookComments({
 
   return (
     <>
-      {/*
-       * FB SDK nhúng theo chuẩn Facebook:
-       * - strategy="afterInteractive": load ngay sau khi trang interactive,
-       *   nhanh hơn lazyOnload, đảm bảo widget render kịp
-       * - Không dùng nonce (gây CSP conflict với Next.js)
-       * - onLoad: trigger parse thủ công sau khi SDK sẵn sàng
-       */}
       <Script
         id="facebook-jssdk"
         strategy="afterInteractive"
@@ -70,11 +49,15 @@ export default function FacebookComments({
         onLoad={handleSdkLoad}
       />
 
-      {/* fb-root bắt buộc phải có và phải render TRƯỚC widget */}
+      {/* fb-root PHẢI tồn tại trước widget */}
       <div id="fb-root" />
 
-      {/* Wrapper + .fb-comments widget */}
-      <div ref={containerRef} className="w-full overflow-hidden">
+      {/*
+       * QUAN TRỌNG: KHÔNG dùng overflow-hidden trên wrapper vì Facebook Comments
+       * render trong <iframe> với chiều cao tự động - overflow-hidden sẽ cắt mất nội dung.
+       * Dùng w-full và min-h thay thế.
+       */}
+      <div ref={containerRef} className="w-full min-h-[200px]">
         <div
           className="fb-comments"
           data-href={url}

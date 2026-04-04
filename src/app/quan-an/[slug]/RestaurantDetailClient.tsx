@@ -425,7 +425,7 @@ export default function RestaurantDetailClient({ data, slug }: RestaurantDetailC
                             </div>
                             
                             {/* Facebook Comments */}
-                            <div className="w-full overflow-hidden min-h-[150px]">
+                            <div className="w-full min-h-[200px]">
                                 {isMounted && (
                                     <FacebookComments url={currentUrl} numPosts={5} />
                                 )}
