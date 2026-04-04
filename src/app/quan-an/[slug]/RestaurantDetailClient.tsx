@@ -7,7 +7,7 @@ import { Restaurant, BADGE_LABELS } from '@/types/wordpress';
 import { useRouter } from 'next/navigation';
 import { ImageGallery } from '@/components/ImageGallery';
 import { ReportModal } from '@/components/ReportModal';
-import { DiscussionEmbed } from 'disqus-react';
+import FacebookComments from '@/components/FacebookComments';
 import { ref, onValue, runTransaction, get } from 'firebase/database';
 import { db } from '@/lib/firebase';
 import fpPromise from '@fingerprintjs/fingerprintjs';
@@ -76,7 +76,7 @@ export default function RestaurantDetailClient({ data, slug }: RestaurantDetailC
     const [isSubmittingRating, setIsSubmittingRating] = useState(false);
     const [fingerprint, setFingerprint] = useState<string | null>(null);
 
-    // Mark client mounted (fixes SSR hydration for disqus-react)
+    // Mark client mounted (fixes SSR hydration for FB Comments)
     useEffect(() => {
         setIsMounted(true);
     }, []);
@@ -237,11 +237,7 @@ export default function RestaurantDetailClient({ data, slug }: RestaurantDetailC
     };
     void openMenuLightbox; // suppress unused warning
 
-    const disqusConfig = data ? {
-        url: `https://anuongcangiuoc.org/quan-an/${slug}`,
-        identifier: String(data.id),
-        title: data.title.rendered,
-    } : undefined;
+    const currentUrl = `https://anuongcangiuoc.org/quan-an/${slug}`;
 
     // Tính điểm trung bình
     const ratings = [
@@ -428,12 +424,10 @@ export default function RestaurantDetailClient({ data, slug }: RestaurantDetailC
                                 </div>
                             </div>
                             
+                            {/* Facebook Comments */}
                             <div className="w-full overflow-hidden min-h-[150px]">
-                                {isMounted && disqusConfig && (
-                                    <DiscussionEmbed
-                                        shortname="anuongcangiuoc"
-                                        config={disqusConfig}
-                                    />
+                                {isMounted && (
+                                    <FacebookComments url={currentUrl} numPosts={5} />
                                 )}
                             </div>
                         </div>
