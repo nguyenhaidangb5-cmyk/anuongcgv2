@@ -53,6 +53,10 @@ class Can_Giuoc_Food_Core
         add_action('admin_footer', array($this, 'enqueue_report_processing_script'));
         add_action('rest_api_init', array($this, 'register_report_submission_endpoint'));
 
+        // --- 16. SUBMISSION APPROVAL (Duyệt đăng ký 1 click) ---
+        add_action('wp_ajax_approve_submission', array($this, 'handle_approve_submission'));
+        add_action('admin_footer', array($this, 'enqueue_submission_approve_script'));
+
         // --- 12. CORS SUPPORT FOR FRONTEND ---
         add_filter('rest_pre_serve_request', array($this, 'add_cors_headers'), 10, 4);
 
@@ -323,6 +327,8 @@ class Can_Giuoc_Food_Core
         $phone = get_post_meta($post->ID, '_sub_phone', true);
         $food = get_post_meta($post->ID, '_sub_recommend_food', true);
         $message = get_post_meta($post->ID, '_sub_message', true);
+        $is_approved = get_post_meta($post->ID, '_sub_approved', true);
+        $created_post_id = get_post_meta($post->ID, '_sub_created_post_id', true);
         ?>
         <table class="form-table">
             <tr>
@@ -358,6 +364,42 @@ class Can_Giuoc_Food_Core
                 <td><?php echo get_the_date('d/m/Y H:i', $post->ID); ?></td>
             </tr>
         </table>
+
+        <?php wp_nonce_field('approve_submission_nonce', 'approve_submission_nonce_field'); ?>
+
+        <div style="margin-top: 24px;">
+            <?php if ($is_approved !== '1'): ?>
+            <div style="padding: 16px 20px; background: #f0fdf4; border: 1px solid #86efac; border-radius: 8px;">
+                <h4 style="margin: 0 0 8px 0; color: #166534; font-size: 14px;">⚡ Xử lý nhanh – Tạo quán từ đăng ký này</h4>
+                <p style="margin: 0 0 14px 0; color: #555; font-size: 13px; line-height: 1.5;">
+                    Bấm nút bên dưới để tự động tạo quán mới với thông tin đã điền sẵn (tên, địa chỉ, số điện thoại).
+                    Bạn chỉ cần bổ sung ảnh và các thông tin còn lại rồi nhấn Publish.
+                </p>
+                <button
+                    type="button"
+                    id="approve-submission-btn"
+                    data-submission-id="<?php echo esc_attr($post->ID); ?>"
+                    style="background: #16a34a; color: #fff; border: none; padding: 11px 22px;
+                           font-size: 14px; font-weight: 700; border-radius: 6px; cursor: pointer;
+                           transition: background 0.2s;">
+                    ✅ DUYỆT &amp; TẠO QUÁN MỚI
+                </button>
+                <span id="approve-submission-status" style="margin-left: 14px; font-weight: 600; font-size: 13px;"></span>
+            </div>
+            <?php else: ?>
+            <div style="padding: 12px 16px; background: #dcfce7; border-left: 4px solid #16a34a; border-radius: 4px; display: flex; align-items: center; gap: 12px;">
+                <span style="font-size: 20px;">✅</span>
+                <div>
+                    <strong style="color: #065f46; font-size: 14px;">Đã duyệt &amp; tạo quán thành công!</strong><br>
+                    <?php if ($created_post_id): ?>
+                    <a href="<?php echo esc_url(get_edit_post_link($created_post_id)); ?>" style="font-size: 13px; color: #059669;">
+                        → Mở trang soạn thảo quán để bổ sung ảnh
+                    </a>
+                    <?php endif; ?>
+                </div>
+            </div>
+            <?php endif; ?>
+        </div>
         <?php
     }
 
@@ -1288,6 +1330,157 @@ class Can_Giuoc_Food_Core
             'success' => true,
             'message' => 'Đã nhận thông tin và lưu vào hệ thống'
         ), 200);
+    }
+
+    /**
+     * 16. SUBMISSION APPROVAL – Xử lý AJAX tạo quán từ đăng ký
+     */
+    public function handle_approve_submission()
+    {
+        check_ajax_referer('approve_submission_nonce', 'nonce');
+
+        if (!current_user_can('edit_posts')) {
+            wp_send_json_error(array('message' => 'Bạn không có quyền thực hiện thao tác này'));
+        }
+
+        $submission_id = intval($_POST['submission_id']);
+
+        if (!$submission_id || get_post_type($submission_id) !== 'cg_submission') {
+            wp_send_json_error(array('message' => 'Tin nhắn không hợp lệ'));
+        }
+
+        // Chống tạo trùng: kiểm tra đã duyệt chưa
+        if (get_post_meta($submission_id, '_sub_approved', true) === '1') {
+            wp_send_json_error(array('message' => 'Tin nhắn này đã được duyệt và tạo quán rồi!'));
+        }
+
+        // Đọc dữ liệu từ submission
+        $store_name = get_post_meta($submission_id, '_sub_store_name', true);
+        $address    = get_post_meta($submission_id, '_sub_address',    true);
+        $phone      = get_post_meta($submission_id, '_sub_phone',      true);
+        $food       = get_post_meta($submission_id, '_sub_recommend_food', true);
+        $message    = get_post_meta($submission_id, '_sub_message',    true);
+
+        if (empty($store_name)) {
+            wp_send_json_error(array('message' => 'Không có tên quán trong tin nhắn này'));
+        }
+
+        // Tạo ghi chú tổng hợp từ submission để admin tham khảo
+        $notes_parts = array();
+        if (!empty($food))    $notes_parts[] = 'Món ngon đề xuất: ' . $food;
+        if (!empty($message)) $notes_parts[] = 'Lời nhắn: ' . $message;
+        $notes = implode("\n", $notes_parts);
+
+        // Tạo bài viết quán mới (Draft – chưa công khai, chờ admin hoàn thiện)
+        $new_post_id = wp_insert_post(array(
+            'post_title'   => sanitize_text_field($store_name),
+            'post_type'    => 'quan_an',
+            'post_status'  => 'draft',
+            'post_content' => '',
+            'meta_input'   => array(
+                '_cg_address'  => sanitize_text_field($address),
+                '_cg_phone'    => sanitize_text_field($phone),
+                '_sub_notes'   => sanitize_textarea_field($notes),
+                '_source_submission_id' => $submission_id,
+            ),
+        ));
+
+        if (is_wp_error($new_post_id)) {
+            wp_send_json_error(array('message' => 'Lỗi khi tạo quán: ' . $new_post_id->get_error_message()));
+        }
+
+        // Tự động gán khu vực nếu địa chỉ có từ khóa phù hợp
+        if (!empty($address)) {
+            $this->auto_assign_region($new_post_id, $address);
+        }
+
+        // Đánh dấu submission đã được duyệt
+        update_post_meta($submission_id, '_sub_approved', '1');
+        update_post_meta($submission_id, '_sub_created_post_id', $new_post_id);
+
+        // URL chuyển hướng sang trang edit quán mới
+        $edit_url = admin_url('post.php?post=' . $new_post_id . '&action=edit');
+
+        wp_send_json_success(array(
+            'message'  => 'Đã tạo quán "' . esc_html($store_name) . '" thành công!',
+            'edit_url' => $edit_url,
+            'post_id'  => $new_post_id,
+        ));
+    }
+
+    /**
+     * 16b. Enqueue script xử lý nút Duyệt Submission
+     * Chỉ load trên trang chi tiết cg_submission
+     */
+    public function enqueue_submission_approve_script()
+    {
+        $screen = get_current_screen();
+        if (!$screen || $screen->post_type !== 'cg_submission' || $screen->base !== 'post') {
+            return;
+        }
+        ?>
+        <script type="text/javascript">
+        jQuery(document).ready(function ($) {
+            $('#approve-submission-btn').on('click', function (e) {
+                e.preventDefault();
+
+                var storeName = '<?php echo esc_js(get_post_meta(get_the_ID(), '_sub_store_name', true)); ?>';
+                var confirmMsg = storeName
+                    ? 'Xác nhận tạo quán mới "' + storeName + '" từ đăng ký này?\nBạn sẽ được chuyển sang trang soạn thảo để bổ sung ảnh và thông tin còn lại.'
+                    : 'Xác nhận tạo quán mới từ tin nhắn này?';
+
+                if (!confirm(confirmMsg)) return;
+
+                var btn          = $(this);
+                var statusEl     = $('#approve-submission-status');
+                var submissionId = btn.data('submission-id');
+                var nonce        = $('#approve_submission_nonce_field').val();
+
+                btn.prop('disabled', true)
+                   .css('background', '#6b7280')
+                   .text('⏳ Đang xử lý...');
+                statusEl.html('');
+
+                $.ajax({
+                    url:  ajaxurl,
+                    type: 'POST',
+                    data: {
+                        action:        'approve_submission',
+                        submission_id: submissionId,
+                        nonce:         nonce
+                    },
+                    success: function (response) {
+                        if (response.success) {
+                            statusEl.html('<span style="color:#16a34a;">✅ ' + response.data.message + ' Đang chuyển hướng...</span>');
+                            // Chuyển hướng sau 1.2 giây để admin thấy thông báo
+                            setTimeout(function () {
+                                window.location.href = response.data.edit_url;
+                            }, 1200);
+                        } else {
+                            statusEl.html('<span style="color:#dc2626;">❌ ' + response.data.message + '</span>');
+                            btn.prop('disabled', false)
+                               .css('background', '#16a34a')
+                               .text('✅ DUYỆT & TẠO QUÁN MỚI');
+                        }
+                    },
+                    error: function () {
+                        statusEl.html('<span style="color:#dc2626;">❌ Lỗi kết nối. Vui lòng thử lại.</span>');
+                        btn.prop('disabled', false)
+                           .css('background', '#16a34a')
+                           .text('✅ DUYỆT & TẠO QUÁN MỚI');
+                    }
+                });
+            });
+
+            // Hover effect
+            $('#approve-submission-btn').on('mouseenter', function () {
+                if (!$(this).prop('disabled')) $(this).css('background', '#15803d');
+            }).on('mouseleave', function () {
+                if (!$(this).prop('disabled')) $(this).css('background', '#16a34a');
+            });
+        });
+        </script>
+        <?php
     }
 
     /**
