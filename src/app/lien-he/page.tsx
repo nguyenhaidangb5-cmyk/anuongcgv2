@@ -7,8 +7,20 @@ export default function ContactPage() {
     const [isLoading, setIsLoading] = useState(false);
     const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle');
 
+    // 🍯 Honeypot anti-spam state — trường này phải luôn rỗng với người dùng thật
+    const [honeypotValue, setHoneypotValue] = useState('');
+
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
+
+        // 🛡️ Kiểm tra Honeypot — DÒNG ĐẦU TIÊN: Bot điền vào → chặn ngay lập tức
+        if (honeypotValue.length > 0) {
+            console.error('🚫 Spam detected: Honeypot field was filled. Request blocked.');
+            // Hiển thị thành công GIẢ để Bot tưởng đã spam xong rồi bỏ đi
+            setStatus('success');
+            return; // KHÔNG gọi API WordPress
+        }
+
         setIsLoading(true);
         setStatus('idle');
 
@@ -132,6 +144,37 @@ export default function ContactPage() {
                                     <div>
                                         <label className="block text-sm font-bold text-gray-700 mb-2">Lời nhắn thêm</label>
                                         <textarea name="message" rows={3} className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 outline-none transition-all" placeholder="Bạn muốn nhắn nhủ gì thêm không?"></textarea>
+                                    </div>
+
+                                    {/*
+                                      🍯 HONEYPOT FIELD — ẨN với người dùng thật bằng CSS thuần.
+                                      - Không dùng type="hidden" (Bot xịn bỏ qua)
+                                      - Dùng type="text" nhưng giấu bằng position:absolute + overflow:hidden
+                                      - tabIndex={-1} và aria-hidden để loại khỏi trải nghiệm người dùng thật
+                                      - autocomplete="off" để trình duyệt không gợi ý điền tự động
+                                    */}
+                                    <div
+                                        aria-hidden="true"
+                                        style={{
+                                            position: 'absolute',
+                                            overflow: 'hidden',
+                                            width: '1px',
+                                            height: '1px',
+                                            opacity: 0,
+                                            pointerEvents: 'none',
+                                            zIndex: -9999,
+                                        }}
+                                    >
+                                        <label htmlFor="company_website_url">Website (đừng điền vào đây)</label>
+                                        <input
+                                            id="company_website_url"
+                                            name="company_website_url"
+                                            type="text"
+                                            value={honeypotValue}
+                                            onChange={(e) => setHoneypotValue(e.target.value)}
+                                            tabIndex={-1}
+                                            autoComplete="off"
+                                        />
                                     </div>
 
                                     <button
