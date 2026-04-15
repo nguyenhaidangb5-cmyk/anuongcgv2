@@ -14,15 +14,15 @@ import fpPromise from '@fingerprintjs/fingerprintjs';
 
 const getBadgeStyle = (label: string) => {
     const l = label.toLowerCase();
-    if (l.includes('may lanh') || l.includes('m\u00e1y l\u1ea1nh')) return { class: 'bg-blue-50 text-blue-700 border-blue-200', icon: '\u2744\ufe0f' };
-    if (l.includes('view')) return { class: 'bg-blue-50 text-blue-700 border-blue-200', icon: '\ud83c\udf0a' };
-    if (l.includes('ngon') || l.includes('b\u1ed5')) return { class: 'bg-green-50 text-green-700 border-green-200', icon: '\ud83d\udcb0' };
-    if (l.includes('x\u00e1c th\u1ef1c') || l.includes('\u0111\u1ec1 xu\u1ea5t')) return { class: 'bg-red-600 text-white border-red-700', icon: '\ud83d\udc51' };
-    if (l.includes('\u0111\u1ecba ph\u01b0\u01a1ng')) return { class: 'bg-orange-50 text-orange-700 border-orange-200', icon: '\ud83c\udfe0' };
-    if (l.includes('chu\u1ea9n v\u1ecb')) return { class: 'bg-orange-50 text-orange-700 border-orange-200', icon: '\u2b50' };
-    if (l.includes('hot') || l.includes('trending')) return { class: 'bg-red-50 text-red-700 border-red-200', icon: '\ud83d\udd25' };
-    if (l.includes('gia \u0111\u00ecnh')) return { class: 'bg-purple-50 text-purple-700 border-purple-200', icon: '\ud83d\udc68\u200d\ud83d\udc69\u200d\ud83d\udc67\u200d\ud83d\udc66' };
-    return { class: 'bg-gray-50 text-gray-600 border-gray-200', icon: '\ud83d\udccd' };
+    if (l.includes('may lanh') || l.includes('máy lạnh')) return { class: 'bg-blue-50 text-blue-700 border-blue-200', icon: '❄️' };
+    if (l.includes('view')) return { class: 'bg-blue-50 text-blue-700 border-blue-200', icon: '🌊' };
+    if (l.includes('ngon') || l.includes('bổ')) return { class: 'bg-green-50 text-green-700 border-green-200', icon: '💰' };
+    if (l.includes('xác thực') || l.includes('đề xuất')) return { class: 'bg-red-600 text-white border-red-700', icon: '👑' };
+    if (l.includes('địa phương')) return { class: 'bg-orange-50 text-orange-700 border-orange-200', icon: '🏠' };
+    if (l.includes('chuẩn vị')) return { class: 'bg-orange-50 text-orange-700 border-orange-200', icon: '⭐' };
+    if (l.includes('hot') || l.includes('trending')) return { class: 'bg-red-50 text-red-700 border-red-200', icon: '🔥' };
+    if (l.includes('gia đình')) return { class: 'bg-purple-50 text-purple-700 border-purple-200', icon: '👨‍👩‍👧‍👦' };
+    return { class: 'bg-gray-50 text-gray-600 border-gray-200', icon: '📍' };
 };
 
 interface RestaurantDetailClientProps { data: Restaurant; slug: string; }
@@ -31,10 +31,10 @@ interface UserReview { taste: number; price: number; service: number; space: num
 interface CriteriaRatings { taste: number; price: number; service: number; space: number; }
 
 const CRITERIA = [
-    { key: 'taste' as const, label: 'H\u01b0\u01a1ng v\u1ecb', icon: '\ud83c\udf7d\ufe0f' },
-    { key: 'price' as const, label: 'Gi\u00e1 c\u1ea3', icon: '\ud83d\udcb5' },
-    { key: 'service' as const, label: 'Ph\u1ee5c v\u1ee5', icon: '\ud83d\udc68\u200d\ud83c\udf73' },
-    { key: 'space' as const, label: 'Kh\u00f4ng gian', icon: '\ud83c\udfe0' },
+    { key: 'taste' as const, label: 'Hương vị', icon: '🍽️' },
+    { key: 'price' as const, label: 'Giá cả', icon: '💵' },
+    { key: 'service' as const, label: 'Phục vụ', icon: '👨‍🍳' },
+    { key: 'space' as const, label: 'Không gian', icon: '🏠' },
 ];
 
 const r1 = (v: number) => Math.round(v * 10) / 10;
@@ -189,20 +189,20 @@ export default function RestaurantDetailClient({ data, slug }: RestaurantDetailC
 
             await set(reviewRef, newReview);
             setExistingReview(newReview); setIsViewMode(true); setIsEditMode(false);
-            setSubmitMessage({ type: 'success', text: liveExistingReview ? '\u0110\u00e3 c\u1eadp nh\u1eadt \u0111\u00e1nh gi\u00e1 c\u1ee7a b\u1ea1n! \ud83c\udf89' : 'C\u1ea3m \u01a1n b\u1ea1n \u0111\u00e3 \u0111\u00e1nh gi\u00e1! \ud83c\udf89' });
+            setSubmitMessage({ type: 'success', text: liveExistingReview ? 'Đã cập nhật đánh giá của bạn! 🎉' : 'Cảm ơn bạn đã đánh giá! 🎉' });
         } catch (error) {
             console.error('Rating error:', error);
-            setSubmitMessage({ type: 'error', text: '\u0110\u00e3 c\u00f3 l\u1ed7i x\u1ea3y ra. Vui l\u00f2ng th\u1eed l\u1ea1i sau!' });
+            setSubmitMessage({ type: 'error', text: 'Đã có lỗi xảy ra. Vui lòng thử lại sau!' });
         } finally { setIsSubmitting(false); }
     };
 
     const hasFirebaseData = ratingStats !== null && ratingStats.count > 0;
     const firebaseScores = hasFirebaseData ? {
-        taste:   r1((ratingStats!.totalTaste   / ratingStats!.count) * 2),
-        price:   r1((ratingStats!.totalPrice   / ratingStats!.count) * 2),
-        service: r1((ratingStats!.totalService / ratingStats!.count) * 2),
-        space:   r1((ratingStats!.totalSpace   / ratingStats!.count) * 2),
-        overall: r1((ratingStats!.totalOverall / ratingStats!.count) * 2),
+        taste:   r1(((ratingStats!.totalTaste || 0) / ratingStats!.count) * 2),
+        price:   r1(((ratingStats!.totalPrice || 0) / ratingStats!.count) * 2),
+        service: r1(((ratingStats!.totalService || 0) / ratingStats!.count) * 2),
+        space:   r1(((ratingStats!.totalSpace || 0) / ratingStats!.count) * 2),
+        overall: r1(((ratingStats!.totalOverall || 0) / ratingStats!.count) * 2),
     } : null;
 
     const adminTaste   = Number(data.rating_food || 0);
@@ -233,7 +233,7 @@ export default function RestaurantDetailClient({ data, slug }: RestaurantDetailC
             <div className="relative h-[250px] md:h-[400px] w-full overflow-hidden">
                 <Image src={data.featured_media_url || 'https://placehold.co/1200x400?text=Restaurant'} alt={data.title.rendered} fill className="object-cover" priority />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
-                <button onClick={() => router.back()} className="md:hidden absolute top-4 left-4 z-50 w-10 h-10 bg-white/80 backdrop-blur-sm hover:bg-white rounded-full flex items-center justify-center shadow-lg transition-all active:scale-95" aria-label="Quay l\u1ea1i">
+                <button onClick={() => router.back()} className="md:hidden absolute top-4 left-4 z-50 w-10 h-10 bg-white/80 backdrop-blur-sm hover:bg-white rounded-full flex items-center justify-center shadow-lg transition-all active:scale-95" aria-label="Quay lại">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-gray-900" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
                 </button>
                 <div className="absolute bottom-0 left-0 right-0 p-4 md:p-8 text-white">
@@ -244,7 +244,7 @@ export default function RestaurantDetailClient({ data, slug }: RestaurantDetailC
                                 <div className="bg-orange-500 text-white px-3 py-1.5 md:px-4 md:py-2 rounded-xl font-bold text-sm md:text-lg shadow-lg flex items-center gap-2">
                                     <span className="text-lg md:text-2xl">&#11088;</span><span>{firebaseScores.overall}</span><span className="text-xs md:text-sm opacity-90">/ 10</span>
                                 </div>
-                                <span className="text-white/80 text-xs">{ratingStats!.count} l\u01b0\u1ee3t \u0111\u00e1nh gi\u00e1</span>
+                                <span className="text-white/80 text-xs">{ratingStats!.count} lượt đánh giá</span>
                             </div>
                         ) : adminScores ? (
                             <div className="flex items-center gap-2">
@@ -260,9 +260,9 @@ export default function RestaurantDetailClient({ data, slug }: RestaurantDetailC
             {/* Main */}
             <div className="container mx-auto px-3 md:px-4 py-6 md:py-10 pb-24 md:pb-10">
                 <nav className="text-xs md:text-sm text-gray-500 mb-4 md:mb-6 flex items-center gap-2">
-                    <Link href="/" className="hover:text-orange-500 transition-colors">Trang ch\u1ee7</Link>
+                    <Link href="/" className="hover:text-orange-500 transition-colors">Trang chủ</Link>
                     <span>/</span>
-                    <Link href="/kham-pha" className="hover:text-orange-500 transition-colors">Kh\u00e1m ph\u00e1</Link>
+                    <Link href="/kham-pha" className="hover:text-orange-500 transition-colors">Khám phá</Link>
                     <span>/</span>
                     <span className="text-gray-900 font-medium">{data.title.rendered}</span>
                 </nav>
@@ -274,18 +274,18 @@ export default function RestaurantDetailClient({ data, slug }: RestaurantDetailC
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
                             <div className="bg-white rounded-2xl p-4 md:p-5 border border-gray-100 shadow-sm">
                                 <div className="text-2xl md:text-3xl mb-2">&#128205;</div>
-                                <h3 className="text-xs md:text-sm font-bold text-gray-500 uppercase mb-1">\u0110\u1ecba ch\u1ec9</h3>
-                                <p className="text-sm md:text-base font-semibold text-gray-900">{data.address || '\u0110ang c\u1eadp nh\u1eadt'}</p>
+                                <h3 className="text-xs md:text-sm font-bold text-gray-500 uppercase mb-1">Địa chỉ</h3>
+                                <p className="text-sm md:text-base font-semibold text-gray-900">{data.address || 'Đang cập nhật'}</p>
                             </div>
                             <div className="bg-white rounded-2xl p-4 md:p-5 border border-gray-100 shadow-sm">
                                 <div className="text-2xl md:text-3xl mb-2">&#128338;</div>
-                                <h3 className="text-xs md:text-sm font-bold text-gray-500 uppercase mb-1">Gi\u1edd m\u1edf c\u1eeda</h3>
-                                <p className="text-sm md:text-base font-semibold text-gray-900">{data.hours || '\u0110ang c\u1eadp nh\u1eadt'}</p>
+                                <h3 className="text-xs md:text-sm font-bold text-gray-500 uppercase mb-1">Giờ mở cửa</h3>
+                                <p className="text-sm md:text-base font-semibold text-gray-900">{data.hours || 'Đang cập nhật'}</p>
                             </div>
                             <div className="bg-white rounded-2xl p-4 md:p-5 border border-gray-100 shadow-sm">
                                 <div className="text-2xl md:text-3xl mb-2">&#128176;</div>
-                                <h3 className="text-xs md:text-sm font-bold text-gray-500 uppercase mb-1">Kho\u1ea3ng gi\u00e1</h3>
-                                <p className="text-sm md:text-base font-semibold text-orange-600">{data.price || '\u0110ang c\u1eadp nh\u1eadt'}</p>
+                                <h3 className="text-xs md:text-sm font-bold text-gray-500 uppercase mb-1">Khoảng giá</h3>
+                                <p className="text-sm md:text-base font-semibold text-orange-600">{data.price || 'Đang cập nhật'}</p>
                             </div>
                         </div>
 
@@ -293,7 +293,7 @@ export default function RestaurantDetailClient({ data, slug }: RestaurantDetailC
                         {data.badges && data.badges.length > 0 && (
                             <div className="bg-white rounded-2xl p-4 md:p-6 border border-gray-100 shadow-sm">
                                 <h2 className="text-lg md:text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-                                    <span>&#127991;&#65039;</span> Ti\u1ec7n \u00edch &amp; \u0110\u1eb7c \u0111i\u1ec3m
+                                    <span>&#127991;&#65039;</span> Tiện ích &amp; Đặc điểm
                                 </h2>
                                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                                     {data.badges.map((badgeKey) => {
@@ -315,23 +315,23 @@ export default function RestaurantDetailClient({ data, slug }: RestaurantDetailC
                         {data.content && data.content.rendered && (
                             <div className="bg-white rounded-2xl p-4 md:p-6 border border-gray-100 shadow-sm">
                                 <h2 className="text-lg md:text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-                                    <span>&#128221;</span> Gi\u1edbi thi\u1ec7u
+                                    <span>&#128221;</span> Giới thiệu
                                 </h2>
                                 <div className="prose prose-sm md:prose-base max-w-none text-gray-700 leading-relaxed" dangerouslySetInnerHTML={{ __html: data.content.rendered }} />
                             </div>
                         )}
 
-                        {data.menu_images && data.menu_images.length > 0 && <ImageGallery images={data.menu_images} title="Th\u1ef1c \u0110\u01a1n" icon="&#128203;" />}
-                        {data.gallery_images && data.gallery_images.length > 0 && <ImageGallery images={data.gallery_images} title="Kh\u00f4ng Gian Qu\u00e1n" icon="&#127978;" />}
+                        {data.menu_images && data.menu_images.length > 0 && <ImageGallery images={data.menu_images} title="Thực Đơn" icon="&#128203;" />}
+                        {data.gallery_images && data.gallery_images.length > 0 && <ImageGallery images={data.gallery_images} title="Không Gian Quán" icon="&#127978;" />}
 
                         {/* Rating Form */}
                         <div ref={ratingFormRef} className="bg-white rounded-2xl p-4 md:p-6 border border-gray-100 shadow-sm">
                             <div className="bg-gradient-to-b from-orange-50 to-white border border-orange-100 rounded-xl p-5 md:p-6 mb-6 shadow-sm">
                                 <h3 className="text-gray-900 font-bold text-lg md:text-xl mb-1 flex items-center justify-center gap-2">
-                                    <span>&#128172;</span> \u0110\u00e1nh gi\u00e1 c\u1ee7a b\u1ea1n
+                                    <span>&#128172;</span> Đánh giá của bạn
                                 </h3>
                                 <p className="text-gray-500 text-sm text-center mb-5">
-                                    Ch\u1ea5m \u0111i\u1ec3m 4 ti\u00eau ch\u00ed \u0111\u1ec3 c\u1ed9ng \u0111\u1ed3ng c\u00f3 th\u00eam th\u00f4ng tin nh\u00e9!
+                                    Chấm điểm 4 tiêu chí để cộng đồng có thêm thông tin nhé!
                                 </p>
 
                                 {isViewMode && !isEditMode && existingReview && (
@@ -341,10 +341,10 @@ export default function RestaurantDetailClient({ data, slug }: RestaurantDetailC
                                         </div>
                                         <div className="flex items-center justify-between">
                                             <div className="text-sm text-gray-500">
-                                                \u0110i\u1ec3m t\u1ed5ng: <span className="font-bold text-orange-600">{existingReview.overall}/5</span>
+                                                Điểm tổng: <span className="font-bold text-orange-600">{existingReview.overall}/5</span>
                                             </div>
                                             <button onClick={enterEditMode} className="flex items-center gap-1.5 bg-orange-50 hover:bg-orange-100 text-orange-700 font-bold px-4 py-2 rounded-xl text-sm transition-all border border-orange-200">
-                                                &#9999;&#65039; S\u1eeda \u0111\u00e1nh gi\u00e1
+                                                &#9999;&#65039; Sửa đánh giá
                                             </button>
                                         </div>
                                         {submitMessage && <div className={`mt-3 text-center text-sm font-semibold py-2 rounded-lg ${submitMessage.type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>{submitMessage.text}</div>}
@@ -364,7 +364,7 @@ export default function RestaurantDetailClient({ data, slug }: RestaurantDetailC
                                         </div>
                                         {isAllFilled && (
                                             <div className="bg-orange-50 rounded-xl p-3 mb-4 flex items-center justify-between">
-                                                <span className="text-sm text-gray-600 font-medium">\u0110i\u1ec3m t\u1ed5ng h\u1ee3p:</span>
+                                                <span className="text-sm text-gray-600 font-medium">Điểm tổng hợp:</span>
                                                 <div className="flex items-center gap-1">
                                                     <span className="text-orange-400 text-lg">&#9733;</span>
                                                     <span className="font-extrabold text-orange-600 text-lg">{overallRating}</span>
@@ -375,15 +375,15 @@ export default function RestaurantDetailClient({ data, slug }: RestaurantDetailC
                                         <div className="flex gap-3">
                                             {isEditMode && (
                                                 <button onClick={() => { setIsEditMode(false); setIsViewMode(true); setSubmitMessage(null); }} className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-3 rounded-xl transition-all text-sm">
-                                                    H\u1ee7y
+                                                    Hủy
                                                 </button>
                                             )}
                                             <button onClick={handleSubmit} disabled={!isAllFilled || isSubmitting || !fingerprint}
                                                 className={`flex-1 font-bold py-3 rounded-xl transition-all text-sm ${isAllFilled && !isSubmitting && fingerprint ? 'bg-orange-500 hover:bg-orange-600 text-white shadow-md shadow-orange-200 hover:shadow-lg active:scale-95' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}>
-                                                {isSubmitting ? '&#9203; \u0110ang g\u1eedi...' : isEditMode ? '&#128190; L\u01b0u thay \u0111\u1ed5i' : '&#127775; G\u1eedi \u0111\u00e1nh gi\u00e1'}
+                                                {isSubmitting ? '&#9203; Đang gửi...' : isEditMode ? '&#128190; Lưu thay đổi' : '&#127775; Gửi đánh giá'}
                                             </button>
                                         </div>
-                                        {!isAllFilled && <p className="text-center text-xs text-gray-400 mt-2">Vui l\u00f2ng ch\u1ea5m \u0111\u1ee7 {CRITERIA.filter(c => criteria[c.key] === 0).length} ti\u00eau ch\u00ed c\u00f2n l\u1ea1i \u0111\u1ec3 g\u1eedi</p>}
+                                        {!isAllFilled && <p className="text-center text-xs text-gray-400 mt-2">Vui lòng chấm đủ {CRITERIA.filter(c => criteria[c.key] === 0).length} tiêu chí còn lại để gửi</p>}
                                         {submitMessage && <div className={`mt-3 text-center text-sm font-semibold py-2 rounded-lg ${submitMessage.type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>{submitMessage.text}</div>}
                                     </div>
                                 )}
@@ -395,33 +395,33 @@ export default function RestaurantDetailClient({ data, slug }: RestaurantDetailC
                     {/* Right Column */}
                     <div className="space-y-6 sticky top-24 self-start">
                         <div className="hidden md:block bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
-                            <h2 className="text-lg font-bold text-gray-900 mb-4">Li\u00ean h\u1ec7</h2>
+                            <h2 className="text-lg font-bold text-gray-900 mb-4">Liên hệ</h2>
                             <div className="space-y-3">
                                 {(data as any).zalo_phone && <a href={`https://zalo.me/${(data as any).zalo_phone}`} target="_blank" rel="noopener noreferrer" className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg"><span className="text-xl">&#128172;</span><span>Chat Zalo</span></a>}
-                                {!(data as any).zalo_phone && data.phone && <a href={`tel:${data.phone}`} className="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg"><span className="text-xl">&#128222;</span><span>G\u1ecdi ngay</span></a>}
-                                {!(data as any).zalo_phone && !data.phone && data.map_link && <a href={data.map_link} target="_blank" rel="noopener noreferrer" className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg"><span className="text-xl">&#128506;&#65039;</span><span>Ch\u1ec9 \u0111\u01b0\u1eddng</span></a>}
-                                {data.map_link && (data.phone || (data as any).zalo_phone) && <a href={data.map_link} target="_blank" rel="noopener noreferrer" className="w-full bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-all border border-blue-200"><span className="text-xl">&#128506;&#65039;</span><span>Ch\u1ec9 \u0111\u01b0\u1eddng</span></a>}
-                                <button onClick={() => setIsReportModalOpen(true)} className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-3 rounded-xl flex items-center justify-center gap-2 transition-all border-2 border-gray-200"><span className="text-lg">&#128681;</span><span>B\u00e1o c\u00e1o l\u1ed7i</span></button>
+                                {!(data as any).zalo_phone && data.phone && <a href={`tel:${data.phone}`} className="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg"><span className="text-xl">&#128222;</span><span>Gọi ngay</span></a>}
+                                {!(data as any).zalo_phone && !data.phone && data.map_link && <a href={data.map_link} target="_blank" rel="noopener noreferrer" className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg"><span className="text-xl">&#128506;&#65039;</span><span>Chỉ đường</span></a>}
+                                {data.map_link && (data.phone || (data as any).zalo_phone) && <a href={data.map_link} target="_blank" rel="noopener noreferrer" className="w-full bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-all border border-blue-200"><span className="text-xl">&#128506;&#65039;</span><span>Chỉ đường</span></a>}
+                                <button onClick={() => setIsReportModalOpen(true)} className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-3 rounded-xl flex items-center justify-center gap-2 transition-all border-2 border-gray-200"><span className="text-lg">&#128681;</span><span>Báo cáo lỗi</span></button>
                             </div>
                         </div>
 
                         {/* 3-Tier Score */}
                         <div className="bg-white rounded-2xl p-4 md:p-6 border border-gray-100 shadow-sm">
                             <h2 className="text-lg md:text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-                                <span>&#11088;</span> \u0110\u00e1nh gi\u00e1 chi ti\u1ebft
+                                <span>&#11088;</span> Đánh giá chi tiết
                             </h2>
                             {!isEmpty && displayScores && (
                                 <div className="space-y-4">
                                     {isAdminFallback && (
                                         <div className="text-xs text-gray-400 italic bg-gray-50 rounded-lg px-3 py-2 flex items-center gap-1.5">
                                             <span>&#8505;&#65039;</span>
-                                            <span>\u0110i\u1ec3m tham kh\u1ea3o t\u1eeb Admin &middot; Ch\u01b0a c\u00f3 \u0111\u00e1nh gi\u00e1 c\u1ed9ng \u0111\u1ed3ng</span>
+                                            <span>Điểm tham khảo từ Admin &middot; Chưa có đánh giá cộng đồng</span>
                                         </div>
                                     )}
                                     {hasFirebaseData && ratingStats && (
                                         <div className="text-xs text-orange-600 font-semibold bg-orange-50 rounded-lg px-3 py-2 flex items-center gap-1.5">
                                             <span>&#128293;</span>
-                                            <span>D\u1ef1a tr\u00ean {ratingStats.count} \u0111\u00e1nh gi\u00e1 c\u1ed9ng \u0111\u1ed3ng</span>
+                                            <span>Dựa trên {ratingStats.count} đánh giá cộng đồng</span>
                                         </div>
                                     )}
                                     {CRITERIA.map(c => {
@@ -439,10 +439,10 @@ export default function RestaurantDetailClient({ data, slug }: RestaurantDetailC
                                         );
                                     })}
                                     <div className="mt-5 pt-5 border-t border-gray-100 text-center">
-                                        <p className="text-xs text-gray-500 mb-1">\u0110i\u1ec3m trung b\u00ecnh</p>
+                                        <p className="text-xs text-gray-500 mb-1">Điểm trung bình</p>
                                         <div className="text-3xl md:text-4xl font-extrabold text-orange-600">{displayScores.overall.toFixed(1)}</div>
                                         <div className="text-yellow-400 text-xl mt-1">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
-                                        <p className="text-xs text-gray-400 mt-0.5">/ 10 \u0111i\u1ec3m</p>
+                                        <p className="text-xs text-gray-400 mt-0.5">/ 10 điểm</p>
                                     </div>
                                 </div>
                             )}
@@ -450,11 +450,11 @@ export default function RestaurantDetailClient({ data, slug }: RestaurantDetailC
                                 <div className="flex flex-col items-center text-center py-4 gap-4">
                                     <div className="text-5xl">&#127869;&#65039;</div>
                                     <div>
-                                        <p className="font-bold text-gray-800 text-sm md:text-base mb-1">Ch\u01b0a c\u00f3 \u0111\u00e1nh gi\u00e1 chi ti\u1ebft</p>
-                                        <p className="text-gray-500 text-xs md:text-sm leading-relaxed">H\u00e3y l\u00e0 ng\u01b0\u1eddi \u0111\u1ea7u ti\u00ean tr\u1ea3i nghi\u1ec7m v\u00e0 ch\u1ea5m \u0111i\u1ec3m cho qu\u00e1n n\u00e0y!</p>
+                                        <p className="font-bold text-gray-800 text-sm md:text-base mb-1">Chưa có đánh giá chi tiết</p>
+                                        <p className="text-gray-500 text-xs md:text-sm leading-relaxed">Hãy là người đầu tiên trải nghiệm và chấm điểm cho quán này!</p>
                                     </div>
                                     <button onClick={scrollToRatingForm} className="bg-orange-500 hover:bg-orange-600 text-white font-bold px-5 py-2.5 rounded-xl text-sm transition-all shadow-md shadow-orange-200 hover:shadow-lg active:scale-95">
-                                        &#127775; \u0110\u00e1nh gi\u00e1 ngay
+                                        &#127775; Đánh giá ngay
                                     </button>
                                 </div>
                             )}
@@ -469,12 +469,12 @@ export default function RestaurantDetailClient({ data, slug }: RestaurantDetailC
                     {data.map_link ? (
                         <a href={data.map_link} target="_blank" rel="noopener noreferrer" className="flex-1 bg-white border-2 border-orange-400 text-orange-600 hover:bg-orange-50 font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95">
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                            <span>Ch\u1ec9 \u0111\u01b0\u1eddng</span>
+                            <span>Chỉ đường</span>
                         </a>
                     ) : (
                         <button disabled className="flex-1 bg-gray-50 border-2 border-gray-200 text-gray-400 font-bold py-3 rounded-xl flex items-center justify-center gap-2 cursor-not-allowed">
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                            <span>Ch\u1ec9 \u0111\u01b0\u1eddng</span>
+                            <span>Chỉ đường</span>
                         </button>
                     )}
                     {(data as any).zalo_phone ? (
@@ -484,16 +484,16 @@ export default function RestaurantDetailClient({ data, slug }: RestaurantDetailC
                     ) : data.phone ? (
                         <a href={`tel:${data.phone}`} className="flex-1 bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 shadow-lg shadow-orange-200">
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
-                            <span>G\u1ecdi Ngay</span>
+                            <span>Gọi Ngay</span>
                         </a>
                     ) : (
                         <button disabled className="flex-1 bg-gray-200 text-gray-400 font-bold py-3 rounded-xl flex items-center justify-center gap-2 cursor-not-allowed">
-                            <span className="text-lg">&#128222;</span><span>Li\u00ean h\u1ec7</span>
+                            <span className="text-lg">&#128222;</span><span>Liên hệ</span>
                         </button>
                     )}
                 </div>
                 <button onClick={() => setIsReportModalOpen(true)} className="w-full mt-2 bg-gray-100 hover:bg-gray-200 text-gray-500 font-medium py-2 rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 text-sm border border-gray-200">
-                    <span>&#128681;</span><span>B\u00e1o c\u00e1o th\u00f4ng tin kh\u00f4ng ch\u00ednh x\u00e1c</span>
+                    <span>&#128681;</span><span>Báo cáo thông tin không chính xác</span>
                 </button>
             </div>
 
@@ -501,9 +501,9 @@ export default function RestaurantDetailClient({ data, slug }: RestaurantDetailC
             {lightboxOpen && lightboxImages.length > 0 && (
                 <div className="fixed inset-0 z-[200] bg-black flex flex-col" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
                     <div className="flex items-center justify-between px-4 py-3 bg-black/80 backdrop-blur-sm">
-                        <div className="text-white font-semibold text-base">&#128214; Th\u1ef1c \u0110\u01a1n</div>
+                        <div className="text-white font-semibold text-base">&#128214; Thực Đơn</div>
                         <div className="text-white/70 text-sm font-medium">{lightboxIndex + 1} / {lightboxImages.length}</div>
-                        <button className="text-white bg-white/20 hover:bg-white/30 active:bg-white/40 rounded-full w-10 h-10 flex items-center justify-center text-lg font-bold transition-all" onClick={() => setLightboxOpen(false)} aria-label="\u0110\u00f3ng">&#10005;</button>
+                        <button className="text-white bg-white/20 hover:bg-white/30 active:bg-white/40 rounded-full w-10 h-10 flex items-center justify-center text-lg font-bold transition-all" onClick={() => setLightboxOpen(false)} aria-label="Đóng">&#10005;</button>
                     </div>
                     <div className="flex-1 flex items-center justify-center relative overflow-hidden">
                         <button className={`absolute left-2 z-10 w-14 h-14 flex items-center justify-center rounded-full text-white text-3xl font-light transition-all active:scale-90 ${lightboxIndex === 0 ? 'bg-white/10 opacity-30 cursor-not-allowed' : 'bg-white/20 hover:bg-white/35'}`} onClick={lightboxPrev} disabled={lightboxIndex === 0}>&#8249;</button>
@@ -517,7 +517,7 @@ export default function RestaurantDetailClient({ data, slug }: RestaurantDetailC
                     )}
                     {lightboxImages.length > 1 && lightboxIndex === 0 && (
                         <div className="absolute bottom-16 left-0 right-0 flex justify-center pointer-events-none">
-                            <span className="bg-black/50 text-white/70 text-xs px-3 py-1 rounded-full">&#128073; Vu\u1ed1t \u0111\u1ec3 xem \u1ea3nh ti\u1ebfp theo</span>
+                            <span className="bg-black/50 text-white/70 text-xs px-3 py-1 rounded-full">&#128073; Vuốt để xem ảnh tiếp theo</span>
                         </div>
                     )}
                 </div>
