@@ -53,7 +53,8 @@ function StarRow({ label, icon, value, hoverValue, readOnly, onChange, onHover, 
                     <button key={star} type="button" disabled={readOnly}
                         onClick={() => onChange?.(star)} onMouseEnter={() => onHover?.(star)} onMouseLeave={() => onLeave?.()}
                         className={`text-2xl transition-all duration-100 select-none ${readOnly ? 'cursor-default' : 'cursor-pointer hover:scale-110 active:scale-95'} ${star <= active ? 'text-yellow-400' : 'text-gray-200'}`}
-                        aria-label={`${label} ${star} sao`}>\u2605</button>
+                        aria-label={`${label} ${star} sao`}
+                    >&#9733;</button>
                 ))}
             </div>
             {value > 0 && <span className="text-xs font-bold text-orange-600 ml-1">{value}/5</span>}
@@ -152,10 +153,6 @@ export default function RestaurantDetailClient({ data, slug }: RestaurantDetailC
 
             // BUG FIX: Always read directly from Firebase before transaction.
             // Do NOT use React state (existingReview) — it can be stale.
-            // If a previous submit errored after the transaction succeeded but before
-            // set() completed, state stays null while Firebase already has the review.
-            // On retry, this caused count to be incremented again (wrong: +1 per retry).
-            // Solution: fetch live data and use that as the source of truth.
             const liveSnap = await get(reviewRef);
             const liveExistingReview: UserReview | null = liveSnap.exists()
                 ? (liveSnap.val() as UserReview) : null;
@@ -170,7 +167,6 @@ export default function RestaurantDetailClient({ data, slug }: RestaurantDetailC
                     } as RatingStats;
                 }
                 if (liveExistingReview) {
-                    // UPSERT: user already has a review — count STAYS THE SAME
                     return {
                         count: current.count,
                         totalTaste:   r1((current.totalTaste   || 0) - liveExistingReview.taste    + newReview.taste),
@@ -180,7 +176,6 @@ export default function RestaurantDetailClient({ data, slug }: RestaurantDetailC
                         totalOverall: r1((current.totalOverall || 0) - liveExistingReview.overall  + newReview.overall),
                     } as RatingStats;
                 } else {
-                    // NEW review: count +1 exactly once
                     return {
                         count: (current.count || 0) + 1,
                         totalTaste:   r1((current.totalTaste   || 0) + newReview.taste),
@@ -194,10 +189,7 @@ export default function RestaurantDetailClient({ data, slug }: RestaurantDetailC
 
             await set(reviewRef, newReview);
             setExistingReview(newReview); setIsViewMode(true); setIsEditMode(false);
-            setSubmitMessage({
-                type: 'success',
-                text: liveExistingReview ? '\u0110\u00e3 c\u1eadp nh\u1eadt \u0111\u00e1nh gi\u00e1 c\u1ee7a b\u1ea1n! \ud83c\udf89' : 'C\u1ea3m \u01a1n b\u1ea1n \u0111\u00e3 \u0111\u00e1nh gi\u00e1! \ud83c\udf89',
-            });
+            setSubmitMessage({ type: 'success', text: liveExistingReview ? '\u0110\u00e3 c\u1eadp nh\u1eadt \u0111\u00e1nh gi\u00e1 c\u1ee7a b\u1ea1n! \ud83c\udf89' : 'C\u1ea3m \u01a1n b\u1ea1n \u0111\u00e3 \u0111\u00e1nh gi\u00e1! \ud83c\udf89' });
         } catch (error) {
             console.error('Rating error:', error);
             setSubmitMessage({ type: 'error', text: '\u0110\u00e3 c\u00f3 l\u1ed7i x\u1ea3y ra. Vui l\u00f2ng th\u1eed l\u1ea1i sau!' });
@@ -236,6 +228,8 @@ export default function RestaurantDetailClient({ data, slug }: RestaurantDetailC
     return (
         <div className="min-h-screen bg-gray-50">
             <Navbar />
+
+            {/* Cover Header */}
             <div className="relative h-[250px] md:h-[400px] w-full overflow-hidden">
                 <Image src={data.featured_media_url || 'https://placehold.co/1200x400?text=Restaurant'} alt={data.title.rendered} fill className="object-cover" priority />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
@@ -248,14 +242,14 @@ export default function RestaurantDetailClient({ data, slug }: RestaurantDetailC
                         {hasFirebaseData && firebaseScores ? (
                             <div className="flex items-center gap-2">
                                 <div className="bg-orange-500 text-white px-3 py-1.5 md:px-4 md:py-2 rounded-xl font-bold text-sm md:text-lg shadow-lg flex items-center gap-2">
-                                    <span className="text-lg md:text-2xl">\u2b50</span><span>{firebaseScores.overall}</span><span className="text-xs md:text-sm opacity-90">/ 10</span>
+                                    <span className="text-lg md:text-2xl">&#11088;</span><span>{firebaseScores.overall}</span><span className="text-xs md:text-sm opacity-90">/ 10</span>
                                 </div>
                                 <span className="text-white/80 text-xs">{ratingStats!.count} l\u01b0\u1ee3t \u0111\u00e1nh gi\u00e1</span>
                             </div>
                         ) : adminScores ? (
                             <div className="flex items-center gap-2">
                                 <div className="bg-gray-600/80 text-white px-3 py-1.5 rounded-xl font-bold text-sm shadow-lg flex items-center gap-2">
-                                    <span>\u2b50</span><span>{adminScores.overall}</span><span className="text-xs opacity-90">/ 10</span>
+                                    <span>&#11088;</span><span>{adminScores.overall}</span><span className="text-xs opacity-90">/ 10</span>
                                 </div>
                             </div>
                         ) : null}
@@ -263,6 +257,7 @@ export default function RestaurantDetailClient({ data, slug }: RestaurantDetailC
                 </div>
             </div>
 
+            {/* Main */}
             <div className="container mx-auto px-3 md:px-4 py-6 md:py-10 pb-24 md:pb-10">
                 <nav className="text-xs md:text-sm text-gray-500 mb-4 md:mb-6 flex items-center gap-2">
                     <Link href="/" className="hover:text-orange-500 transition-colors">Trang ch\u1ee7</Link>
@@ -271,29 +266,35 @@ export default function RestaurantDetailClient({ data, slug }: RestaurantDetailC
                     <span>/</span>
                     <span className="text-gray-900 font-medium">{data.title.rendered}</span>
                 </nav>
+
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
                     <div className="lg:col-span-2 space-y-6">
+
+                        {/* Quick Info */}
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
                             <div className="bg-white rounded-2xl p-4 md:p-5 border border-gray-100 shadow-sm">
-                                <div className="text-2xl md:text-3xl mb-2">\ud83d\udccd</div>
+                                <div className="text-2xl md:text-3xl mb-2">&#128205;</div>
                                 <h3 className="text-xs md:text-sm font-bold text-gray-500 uppercase mb-1">\u0110\u1ecba ch\u1ec9</h3>
                                 <p className="text-sm md:text-base font-semibold text-gray-900">{data.address || '\u0110ang c\u1eadp nh\u1eadt'}</p>
                             </div>
                             <div className="bg-white rounded-2xl p-4 md:p-5 border border-gray-100 shadow-sm">
-                                <div className="text-2xl md:text-3xl mb-2">\ud83d\udd52</div>
+                                <div className="text-2xl md:text-3xl mb-2">&#128338;</div>
                                 <h3 className="text-xs md:text-sm font-bold text-gray-500 uppercase mb-1">Gi\u1edd m\u1edf c\u1eeda</h3>
                                 <p className="text-sm md:text-base font-semibold text-gray-900">{data.hours || '\u0110ang c\u1eadp nh\u1eadt'}</p>
                             </div>
                             <div className="bg-white rounded-2xl p-4 md:p-5 border border-gray-100 shadow-sm">
-                                <div className="text-2xl md:text-3xl mb-2">\ud83d\udcb0</div>
+                                <div className="text-2xl md:text-3xl mb-2">&#128176;</div>
                                 <h3 className="text-xs md:text-sm font-bold text-gray-500 uppercase mb-1">Kho\u1ea3ng gi\u00e1</h3>
                                 <p className="text-sm md:text-base font-semibold text-orange-600">{data.price || '\u0110ang c\u1eadp nh\u1eadt'}</p>
                             </div>
                         </div>
 
+                        {/* Badges */}
                         {data.badges && data.badges.length > 0 && (
                             <div className="bg-white rounded-2xl p-4 md:p-6 border border-gray-100 shadow-sm">
-                                <h2 className="text-lg md:text-xl font-bold text-gray-900 mb-4 flex items-center gap-2"><span>\ud83c\udff7\ufe0f</span> Ti\u1ec7n \u00edch &amp; \u0110\u1eb7c \u0111i\u1ec3m</h2>
+                                <h2 className="text-lg md:text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                                    <span>&#127991;&#65039;</span> Ti\u1ec7n \u00edch &amp; \u0110\u1eb7c \u0111i\u1ec3m
+                                </h2>
                                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                                     {data.badges.map((badgeKey) => {
                                         const badgeData = BADGE_LABELS[badgeKey as keyof typeof BADGE_LABELS];
@@ -310,20 +311,28 @@ export default function RestaurantDetailClient({ data, slug }: RestaurantDetailC
                             </div>
                         )}
 
+                        {/* Description */}
                         {data.content && data.content.rendered && (
                             <div className="bg-white rounded-2xl p-4 md:p-6 border border-gray-100 shadow-sm">
-                                <h2 className="text-lg md:text-xl font-bold text-gray-900 mb-4 flex items-center gap-2"><span>\ud83d\udcdd</span> Gi\u1edbi thi\u1ec7u</h2>
+                                <h2 className="text-lg md:text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                                    <span>&#128221;</span> Gi\u1edbi thi\u1ec7u
+                                </h2>
                                 <div className="prose prose-sm md:prose-base max-w-none text-gray-700 leading-relaxed" dangerouslySetInnerHTML={{ __html: data.content.rendered }} />
                             </div>
                         )}
 
-                        {data.menu_images && data.menu_images.length > 0 && <ImageGallery images={data.menu_images} title="Th\u1ef1c \u0110\u01a1n" icon="\ud83d\udccb" />}
-                        {data.gallery_images && data.gallery_images.length > 0 && <ImageGallery images={data.gallery_images} title="Kh\u00f4ng Gian Qu\u00e1n" icon="\ud83c\udff7\ufe0f" />}
+                        {data.menu_images && data.menu_images.length > 0 && <ImageGallery images={data.menu_images} title="Th\u1ef1c \u0110\u01a1n" icon="&#128203;" />}
+                        {data.gallery_images && data.gallery_images.length > 0 && <ImageGallery images={data.gallery_images} title="Kh\u00f4ng Gian Qu\u00e1n" icon="&#127978;" />}
 
+                        {/* Rating Form */}
                         <div ref={ratingFormRef} className="bg-white rounded-2xl p-4 md:p-6 border border-gray-100 shadow-sm">
                             <div className="bg-gradient-to-b from-orange-50 to-white border border-orange-100 rounded-xl p-5 md:p-6 mb-6 shadow-sm">
-                                <h3 className="text-gray-900 font-bold text-lg md:text-xl mb-1 flex items-center justify-center gap-2"><span>\ud83d\udcac</span> \u0110\u00e1nh gi\u00e1 c\u1ee7a b\u1ea1n</h3>
-                                <p className="text-gray-500 text-sm text-center mb-5">Ch\u1ea5m \u0111i\u1ec3m 4 ti\u00eau ch\u00ed \u0111\u1ec3 c\u1ed9ng \u0111\u1ed3ng c\u00f3 th\u00eam th\u00f4ng tin nh\u00e9!</p>
+                                <h3 className="text-gray-900 font-bold text-lg md:text-xl mb-1 flex items-center justify-center gap-2">
+                                    <span>&#128172;</span> \u0110\u00e1nh gi\u00e1 c\u1ee7a b\u1ea1n
+                                </h3>
+                                <p className="text-gray-500 text-sm text-center mb-5">
+                                    Ch\u1ea5m \u0111i\u1ec3m 4 ti\u00eau ch\u00ed \u0111\u1ec3 c\u1ed9ng \u0111\u1ed3ng c\u00f3 th\u00eam th\u00f4ng tin nh\u00e9!
+                                </p>
 
                                 {isViewMode && !isEditMode && existingReview && (
                                     <div>
@@ -331,9 +340,11 @@ export default function RestaurantDetailClient({ data, slug }: RestaurantDetailC
                                             {CRITERIA.map(c => <StarRow key={c.key} label={c.label} icon={c.icon} value={criteria[c.key]} hoverValue={0} readOnly />)}
                                         </div>
                                         <div className="flex items-center justify-between">
-                                            <div className="text-sm text-gray-500">\u0110i\u1ec3m t\u1ed5ng: <span className="font-bold text-orange-600">{existingReview.overall}/5</span></div>
+                                            <div className="text-sm text-gray-500">
+                                                \u0110i\u1ec3m t\u1ed5ng: <span className="font-bold text-orange-600">{existingReview.overall}/5</span>
+                                            </div>
                                             <button onClick={enterEditMode} className="flex items-center gap-1.5 bg-orange-50 hover:bg-orange-100 text-orange-700 font-bold px-4 py-2 rounded-xl text-sm transition-all border border-orange-200">
-                                                \u270f\ufe0f S\u1eeda \u0111\u00e1nh gi\u00e1
+                                                &#9999;&#65039; S\u1eeda \u0111\u00e1nh gi\u00e1
                                             </button>
                                         </div>
                                         {submitMessage && <div className={`mt-3 text-center text-sm font-semibold py-2 rounded-lg ${submitMessage.type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>{submitMessage.text}</div>}
@@ -354,14 +365,22 @@ export default function RestaurantDetailClient({ data, slug }: RestaurantDetailC
                                         {isAllFilled && (
                                             <div className="bg-orange-50 rounded-xl p-3 mb-4 flex items-center justify-between">
                                                 <span className="text-sm text-gray-600 font-medium">\u0110i\u1ec3m t\u1ed5ng h\u1ee3p:</span>
-                                                <div className="flex items-center gap-1"><span className="text-orange-400 text-lg">\u2605</span><span className="font-extrabold text-orange-600 text-lg">{overallRating}</span><span className="text-gray-400 text-sm">/5</span></div>
+                                                <div className="flex items-center gap-1">
+                                                    <span className="text-orange-400 text-lg">&#9733;</span>
+                                                    <span className="font-extrabold text-orange-600 text-lg">{overallRating}</span>
+                                                    <span className="text-gray-400 text-sm">/5</span>
+                                                </div>
                                             </div>
                                         )}
                                         <div className="flex gap-3">
-                                            {isEditMode && <button onClick={() => { setIsEditMode(false); setIsViewMode(true); setSubmitMessage(null); }} className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-3 rounded-xl transition-all text-sm">H\u1ee7y</button>}
+                                            {isEditMode && (
+                                                <button onClick={() => { setIsEditMode(false); setIsViewMode(true); setSubmitMessage(null); }} className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-3 rounded-xl transition-all text-sm">
+                                                    H\u1ee7y
+                                                </button>
+                                            )}
                                             <button onClick={handleSubmit} disabled={!isAllFilled || isSubmitting || !fingerprint}
                                                 className={`flex-1 font-bold py-3 rounded-xl transition-all text-sm ${isAllFilled && !isSubmitting && fingerprint ? 'bg-orange-500 hover:bg-orange-600 text-white shadow-md shadow-orange-200 hover:shadow-lg active:scale-95' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}>
-                                                {isSubmitting ? '\u23f3 \u0110ang g\u1eedi...' : isEditMode ? '\ud83d\udcbe L\u01b0u thay \u0111\u1ed5i' : '\ud83c\udf1f G\u1eedi \u0111\u00e1nh gi\u00e1'}
+                                                {isSubmitting ? '&#9203; \u0110ang g\u1eedi...' : isEditMode ? '&#128190; L\u01b0u thay \u0111\u1ed5i' : '&#127775; G\u1eedi \u0111\u00e1nh gi\u00e1'}
                                             </button>
                                         </div>
                                         {!isAllFilled && <p className="text-center text-xs text-gray-400 mt-2">Vui l\u00f2ng ch\u1ea5m \u0111\u1ee7 {CRITERIA.filter(c => criteria[c.key] === 0).length} ti\u00eau ch\u00ed c\u00f2n l\u1ea1i \u0111\u1ec3 g\u1eedi</p>}
@@ -373,24 +392,38 @@ export default function RestaurantDetailClient({ data, slug }: RestaurantDetailC
                         </div>
                     </div>
 
+                    {/* Right Column */}
                     <div className="space-y-6 sticky top-24 self-start">
                         <div className="hidden md:block bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
                             <h2 className="text-lg font-bold text-gray-900 mb-4">Li\u00ean h\u1ec7</h2>
                             <div className="space-y-3">
-                                {(data as any).zalo_phone && <a href={`https://zalo.me/${(data as any).zalo_phone}`} target="_blank" rel="noopener noreferrer" className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg"><span className="text-xl">\ud83d\udcac</span><span>Chat Zalo</span></a>}
-                                {!(data as any).zalo_phone && data.phone && <a href={`tel:${data.phone}`} className="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg"><span className="text-xl">\ud83d\udcde</span><span>G\u1ecdi ngay</span></a>}
-                                {!(data as any).zalo_phone && !data.phone && data.map_link && <a href={data.map_link} target="_blank" rel="noopener noreferrer" className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg"><span className="text-xl">\ud83d\uddfa\ufe0f</span><span>Ch\u1ec9 \u0111\u01b0\u1eddng</span></a>}
-                                {data.map_link && (data.phone || (data as any).zalo_phone) && <a href={data.map_link} target="_blank" rel="noopener noreferrer" className="w-full bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-all border border-blue-200"><span className="text-xl">\ud83d\uddfa\ufe0f</span><span>Ch\u1ec9 \u0111\u01b0\u1eddng</span></a>}
-                                <button onClick={() => setIsReportModalOpen(true)} className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-3 rounded-xl flex items-center justify-center gap-2 transition-all border-2 border-gray-200"><span className="text-lg">\ud83d\udea9</span><span>B\u00e1o c\u00e1o l\u1ed7i</span></button>
+                                {(data as any).zalo_phone && <a href={`https://zalo.me/${(data as any).zalo_phone}`} target="_blank" rel="noopener noreferrer" className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg"><span className="text-xl">&#128172;</span><span>Chat Zalo</span></a>}
+                                {!(data as any).zalo_phone && data.phone && <a href={`tel:${data.phone}`} className="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg"><span className="text-xl">&#128222;</span><span>G\u1ecdi ngay</span></a>}
+                                {!(data as any).zalo_phone && !data.phone && data.map_link && <a href={data.map_link} target="_blank" rel="noopener noreferrer" className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg"><span className="text-xl">&#128506;&#65039;</span><span>Ch\u1ec9 \u0111\u01b0\u1eddng</span></a>}
+                                {data.map_link && (data.phone || (data as any).zalo_phone) && <a href={data.map_link} target="_blank" rel="noopener noreferrer" className="w-full bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-all border border-blue-200"><span className="text-xl">&#128506;&#65039;</span><span>Ch\u1ec9 \u0111\u01b0\u1eddng</span></a>}
+                                <button onClick={() => setIsReportModalOpen(true)} className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-3 rounded-xl flex items-center justify-center gap-2 transition-all border-2 border-gray-200"><span className="text-lg">&#128681;</span><span>B\u00e1o c\u00e1o l\u1ed7i</span></button>
                             </div>
                         </div>
 
+                        {/* 3-Tier Score */}
                         <div className="bg-white rounded-2xl p-4 md:p-6 border border-gray-100 shadow-sm">
-                            <h2 className="text-lg md:text-xl font-bold text-gray-900 mb-4 flex items-center gap-2"><span>\u2b50</span> \u0110\u00e1nh gi\u00e1 chi ti\u1ebft</h2>
+                            <h2 className="text-lg md:text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                                <span>&#11088;</span> \u0110\u00e1nh gi\u00e1 chi ti\u1ebft
+                            </h2>
                             {!isEmpty && displayScores && (
                                 <div className="space-y-4">
-                                    {isAdminFallback && <div className="text-xs text-gray-400 italic bg-gray-50 rounded-lg px-3 py-2 flex items-center gap-1.5"><span>\u2139\ufe0f</span><span>\u0110i\u1ec3m tham kh\u1ea3o t\u1eeb Admin \u00b7 Ch\u01b0a c\u00f3 \u0111\u00e1nh gi\u00e1 c\u1ed9ng \u0111\u1ed3ng</span></div>}
-                                    {hasFirebaseData && ratingStats && <div className="text-xs text-orange-600 font-semibold bg-orange-50 rounded-lg px-3 py-2 flex items-center gap-1.5"><span>\ud83d\udd25</span><span>D\u1ef1a tr\u00ean {ratingStats.count} \u0111\u00e1nh gi\u00e1 c\u1ed9ng \u0111\u1ed3ng</span></div>}
+                                    {isAdminFallback && (
+                                        <div className="text-xs text-gray-400 italic bg-gray-50 rounded-lg px-3 py-2 flex items-center gap-1.5">
+                                            <span>&#8505;&#65039;</span>
+                                            <span>\u0110i\u1ec3m tham kh\u1ea3o t\u1eeb Admin &middot; Ch\u01b0a c\u00f3 \u0111\u00e1nh gi\u00e1 c\u1ed9ng \u0111\u1ed3ng</span>
+                                        </div>
+                                    )}
+                                    {hasFirebaseData && ratingStats && (
+                                        <div className="text-xs text-orange-600 font-semibold bg-orange-50 rounded-lg px-3 py-2 flex items-center gap-1.5">
+                                            <span>&#128293;</span>
+                                            <span>D\u1ef1a tr\u00ean {ratingStats.count} \u0111\u00e1nh gi\u00e1 c\u1ed9ng \u0111\u1ed3ng</span>
+                                        </div>
+                                    )}
                                     {CRITERIA.map(c => {
                                         const score = displayScores[c.key as keyof typeof displayScores];
                                         return (
@@ -408,19 +441,21 @@ export default function RestaurantDetailClient({ data, slug }: RestaurantDetailC
                                     <div className="mt-5 pt-5 border-t border-gray-100 text-center">
                                         <p className="text-xs text-gray-500 mb-1">\u0110i\u1ec3m trung b\u00ecnh</p>
                                         <div className="text-3xl md:text-4xl font-extrabold text-orange-600">{displayScores.overall.toFixed(1)}</div>
-                                        <div className="text-yellow-400 text-xl mt-1">\u2605\u2605\u2605\u2605\u2605</div>
+                                        <div className="text-yellow-400 text-xl mt-1">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
                                         <p className="text-xs text-gray-400 mt-0.5">/ 10 \u0111i\u1ec3m</p>
                                     </div>
                                 </div>
                             )}
                             {isEmpty && (
                                 <div className="flex flex-col items-center text-center py-4 gap-4">
-                                    <div className="text-5xl">\ud83c\udf7d\ufe0f</div>
+                                    <div className="text-5xl">&#127869;&#65039;</div>
                                     <div>
                                         <p className="font-bold text-gray-800 text-sm md:text-base mb-1">Ch\u01b0a c\u00f3 \u0111\u00e1nh gi\u00e1 chi ti\u1ebft</p>
                                         <p className="text-gray-500 text-xs md:text-sm leading-relaxed">H\u00e3y l\u00e0 ng\u01b0\u1eddi \u0111\u1ea7u ti\u00ean tr\u1ea3i nghi\u1ec7m v\u00e0 ch\u1ea5m \u0111i\u1ec3m cho qu\u00e1n n\u00e0y!</p>
                                     </div>
-                                    <button onClick={scrollToRatingForm} className="bg-orange-500 hover:bg-orange-600 text-white font-bold px-5 py-2.5 rounded-xl text-sm transition-all shadow-md shadow-orange-200 hover:shadow-lg active:scale-95">\ud83c\udf1f \u0110\u00e1nh gi\u00e1 ngay</button>
+                                    <button onClick={scrollToRatingForm} className="bg-orange-500 hover:bg-orange-600 text-white font-bold px-5 py-2.5 rounded-xl text-sm transition-all shadow-md shadow-orange-200 hover:shadow-lg active:scale-95">
+                                        &#127775; \u0110\u00e1nh gi\u00e1 ngay
+                                    </button>
                                 </div>
                             )}
                         </div>
@@ -428,6 +463,7 @@ export default function RestaurantDetailClient({ data, slug }: RestaurantDetailC
                 </div>
             </div>
 
+            {/* Sticky Footer Mobile */}
             <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] p-3 md:hidden z-50">
                 <div className="flex gap-3">
                     {data.map_link ? (
@@ -443,7 +479,7 @@ export default function RestaurantDetailClient({ data, slug }: RestaurantDetailC
                     )}
                     {(data as any).zalo_phone ? (
                         <a href={`https://zalo.me/${(data as any).zalo_phone}`} target="_blank" rel="noopener noreferrer" className="flex-1 bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 shadow-lg shadow-orange-200">
-                            <span className="text-lg">\ud83d\udcac</span><span>Chat Zalo</span>
+                            <span className="text-lg">&#128172;</span><span>Chat Zalo</span>
                         </a>
                     ) : data.phone ? (
                         <a href={`tel:${data.phone}`} className="flex-1 bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 shadow-lg shadow-orange-200">
@@ -452,26 +488,27 @@ export default function RestaurantDetailClient({ data, slug }: RestaurantDetailC
                         </a>
                     ) : (
                         <button disabled className="flex-1 bg-gray-200 text-gray-400 font-bold py-3 rounded-xl flex items-center justify-center gap-2 cursor-not-allowed">
-                            <span className="text-lg">\ud83d\udcde</span><span>Li\u00ean h\u1ec7</span>
+                            <span className="text-lg">&#128222;</span><span>Li\u00ean h\u1ec7</span>
                         </button>
                     )}
                 </div>
                 <button onClick={() => setIsReportModalOpen(true)} className="w-full mt-2 bg-gray-100 hover:bg-gray-200 text-gray-500 font-medium py-2 rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 text-sm border border-gray-200">
-                    <span>\ud83d\udea9</span><span>B\u00e1o c\u00e1o th\u00f4ng tin kh\u00f4ng ch\u00ednh x\u00e1c</span>
+                    <span>&#128681;</span><span>B\u00e1o c\u00e1o th\u00f4ng tin kh\u00f4ng ch\u00ednh x\u00e1c</span>
                 </button>
             </div>
 
+            {/* Lightbox */}
             {lightboxOpen && lightboxImages.length > 0 && (
                 <div className="fixed inset-0 z-[200] bg-black flex flex-col" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
                     <div className="flex items-center justify-between px-4 py-3 bg-black/80 backdrop-blur-sm">
-                        <div className="text-white font-semibold text-base">\ud83d\udcd6 Th\u1ef1c \u0110\u01a1n</div>
+                        <div className="text-white font-semibold text-base">&#128214; Th\u1ef1c \u0110\u01a1n</div>
                         <div className="text-white/70 text-sm font-medium">{lightboxIndex + 1} / {lightboxImages.length}</div>
-                        <button className="text-white bg-white/20 hover:bg-white/30 active:bg-white/40 rounded-full w-10 h-10 flex items-center justify-center text-lg font-bold transition-all" onClick={() => setLightboxOpen(false)} aria-label="\u0110\u00f3ng">\u2715</button>
+                        <button className="text-white bg-white/20 hover:bg-white/30 active:bg-white/40 rounded-full w-10 h-10 flex items-center justify-center text-lg font-bold transition-all" onClick={() => setLightboxOpen(false)} aria-label="\u0110\u00f3ng">&#10005;</button>
                     </div>
                     <div className="flex-1 flex items-center justify-center relative overflow-hidden">
-                        <button className={`absolute left-2 z-10 w-14 h-14 flex items-center justify-center rounded-full text-white text-3xl font-light transition-all active:scale-90 ${lightboxIndex === 0 ? 'bg-white/10 opacity-30 cursor-not-allowed' : 'bg-white/20 hover:bg-white/35'}`} onClick={lightboxPrev} disabled={lightboxIndex === 0} aria-label="\u1ea2nh tr\u01b0\u1edbc">\u2039</button>
+                        <button className={`absolute left-2 z-10 w-14 h-14 flex items-center justify-center rounded-full text-white text-3xl font-light transition-all active:scale-90 ${lightboxIndex === 0 ? 'bg-white/10 opacity-30 cursor-not-allowed' : 'bg-white/20 hover:bg-white/35'}`} onClick={lightboxPrev} disabled={lightboxIndex === 0}>&#8249;</button>
                         <img src={lightboxImages[lightboxIndex]} alt={`Menu ${lightboxIndex + 1}`} className="max-h-full max-w-full object-contain select-none" draggable={false} />
-                        <button className={`absolute right-2 z-10 w-14 h-14 flex items-center justify-center rounded-full text-white text-3xl font-light transition-all active:scale-90 ${lightboxIndex === lightboxImages.length - 1 ? 'bg-white/10 opacity-30 cursor-not-allowed' : 'bg-white/20 hover:bg-white/35'}`} onClick={lightboxNext} disabled={lightboxIndex === lightboxImages.length - 1} aria-label="\u1ea2nh ti\u1ebfp theo">\u203a</button>
+                        <button className={`absolute right-2 z-10 w-14 h-14 flex items-center justify-center rounded-full text-white text-3xl font-light transition-all active:scale-90 ${lightboxIndex === lightboxImages.length - 1 ? 'bg-white/10 opacity-30 cursor-not-allowed' : 'bg-white/20 hover:bg-white/35'}`} onClick={lightboxNext} disabled={lightboxIndex === lightboxImages.length - 1}>&#8250;</button>
                     </div>
                     {lightboxImages.length > 1 && lightboxImages.length <= 10 && (
                         <div className="flex justify-center gap-2 py-3 bg-black/80">
@@ -480,7 +517,7 @@ export default function RestaurantDetailClient({ data, slug }: RestaurantDetailC
                     )}
                     {lightboxImages.length > 1 && lightboxIndex === 0 && (
                         <div className="absolute bottom-16 left-0 right-0 flex justify-center pointer-events-none">
-                            <span className="bg-black/50 text-white/70 text-xs px-3 py-1 rounded-full">\ud83d\udc49 Vu\u1ed1t \u0111\u1ec3 xem \u1ea3nh ti\u1ebfp theo</span>
+                            <span className="bg-black/50 text-white/70 text-xs px-3 py-1 rounded-full">&#128073; Vu\u1ed1t \u0111\u1ec3 xem \u1ea3nh ti\u1ebfp theo</span>
                         </div>
                     )}
                 </div>
