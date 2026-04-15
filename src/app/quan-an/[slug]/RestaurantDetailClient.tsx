@@ -12,88 +12,34 @@ import { ref, onValue, runTransaction, get, set } from 'firebase/database';
 import { db } from '@/lib/firebase';
 import fpPromise from '@fingerprintjs/fingerprintjs';
 
-// ─── Badge helpers ─────────────────────────────────────────────────────────────
 const getBadgeStyle = (label: string) => {
     const l = label.toLowerCase();
-    if (l.includes('máy lạnh') || l.includes('view sông') || l.includes('view')) {
-        return { class: 'bg-blue-50 text-blue-700 border-blue-200', icon: l.includes('máy lạnh') ? '❄️' : '🌊' };
-    }
-    if (l.includes('ngon, bổ, rẻ')) {
-        return { class: 'bg-green-50 text-green-700 border-green-200', icon: '💰' };
-    }
-    if (l.includes('admin đề xuất') || l.includes('xác thực')) {
-        return { class: 'bg-red-600 text-white border-red-700', icon: '👑' };
-    }
-    if (l.includes('địa phương') || l.includes('chuẩn vị')) {
-        return { class: 'bg-orange-50 text-orange-700 border-orange-200', icon: l.includes('địa phương') ? '🏠' : '⭐' };
-    }
-    if (l.includes('hot') || l.includes('trending')) {
-        return { class: 'bg-red-50 text-red-700 border-red-200', icon: '🔥' };
-    }
-    if (l.includes('gia đình')) {
-        return { class: 'bg-purple-50 text-purple-700 border-purple-200', icon: '👨‍👩‍👧‍👦' };
-    }
-    return { class: 'bg-gray-50 text-gray-600 border-gray-200', icon: '📍' };
+    if (l.includes('may lanh') || l.includes('m\u00e1y l\u1ea1nh')) return { class: 'bg-blue-50 text-blue-700 border-blue-200', icon: '\u2744\ufe0f' };
+    if (l.includes('view')) return { class: 'bg-blue-50 text-blue-700 border-blue-200', icon: '\ud83c\udf0a' };
+    if (l.includes('ngon') || l.includes('b\u1ed5')) return { class: 'bg-green-50 text-green-700 border-green-200', icon: '\ud83d\udcb0' };
+    if (l.includes('x\u00e1c th\u1ef1c') || l.includes('\u0111\u1ec1 xu\u1ea5t')) return { class: 'bg-red-600 text-white border-red-700', icon: '\ud83d\udc51' };
+    if (l.includes('\u0111\u1ecba ph\u01b0\u01a1ng')) return { class: 'bg-orange-50 text-orange-700 border-orange-200', icon: '\ud83c\udfe0' };
+    if (l.includes('chu\u1ea9n v\u1ecb')) return { class: 'bg-orange-50 text-orange-700 border-orange-200', icon: '\u2b50' };
+    if (l.includes('hot') || l.includes('trending')) return { class: 'bg-red-50 text-red-700 border-red-200', icon: '\ud83d\udd25' };
+    if (l.includes('gia \u0111\u00ecnh')) return { class: 'bg-purple-50 text-purple-700 border-purple-200', icon: '\ud83d\udc68\u200d\ud83d\udc69\u200d\ud83d\udc67\u200d\ud83d\udc66' };
+    return { class: 'bg-gray-50 text-gray-600 border-gray-200', icon: '\ud83d\udccd' };
 };
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-interface RestaurantDetailClientProps {
-    data: Restaurant;
-    slug: string;
-}
+interface RestaurantDetailClientProps { data: Restaurant; slug: string; }
+interface RatingStats { count: number; totalTaste: number; totalPrice: number; totalService: number; totalSpace: number; totalOverall: number; }
+interface UserReview { taste: number; price: number; service: number; space: number; overall: number; timestamp: number; ip: string; visitorId: string; }
+interface CriteriaRatings { taste: number; price: number; service: number; space: number; }
 
-// Firebase aggregation node: ratings/{restaurantId}
-interface RatingStats {
-    count: number;
-    totalTaste: number;
-    totalPrice: number;
-    totalService: number;
-    totalSpace: number;
-    totalOverall: number;
-}
-
-// Firebase per-user node: reviews/{restaurantId}/{visitorId}
-interface UserReview {
-    taste: number;
-    price: number;
-    service: number;
-    space: number;
-    overall: number;
-    timestamp: number;
-    ip: string;
-    visitorId: string;
-}
-
-// Form state for 4 criteria
-interface CriteriaRatings {
-    taste: number;    // 0 = not set
-    price: number;
-    service: number;
-    space: number;
-}
-
-// Criteria config
 const CRITERIA = [
-    { key: 'taste' as const, label: 'Hương vị', icon: '🍽️' },
-    { key: 'price' as const, label: 'Giá cả', icon: '💵' },
-    { key: 'service' as const, label: 'Phục vụ', icon: '👨‍🍳' },
-    { key: 'space' as const, label: 'Không gian', icon: '🏪' },
+    { key: 'taste' as const, label: 'H\u01b0\u01a1ng v\u1ecb', icon: '\ud83c\udf7d\ufe0f' },
+    { key: 'price' as const, label: 'Gi\u00e1 c\u1ea3', icon: '\ud83d\udcb5' },
+    { key: 'service' as const, label: 'Ph\u1ee5c v\u1ee5', icon: '\ud83d\udc68\u200d\ud83c\udf73' },
+    { key: 'space' as const, label: 'Kh\u00f4ng gian', icon: '\ud83c\udfe0' },
 ];
 
-// Round to 1 decimal to avoid floating-point garbage
 const r1 = (v: number) => Math.round(v * 10) / 10;
 
-// ─── Star Row Component ────────────────────────────────────────────────────────
-interface StarRowProps {
-    label: string;
-    icon: string;
-    value: number;       // selected value (0 = none)
-    hoverValue: number;  // hovered value (0 = none)
-    readOnly?: boolean;
-    onChange?: (v: number) => void;
-    onHover?: (v: number) => void;
-    onLeave?: () => void;
-}
+interface StarRowProps { label: string; icon: string; value: number; hoverValue: number; readOnly?: boolean; onChange?: (v: number) => void; onHover?: (v: number) => void; onLeave?: () => void; }
 function StarRow({ label, icon, value, hoverValue, readOnly, onChange, onHover, onLeave }: StarRowProps) {
     const active = hoverValue || value;
     return (
@@ -104,84 +50,46 @@ function StarRow({ label, icon, value, hoverValue, readOnly, onChange, onHover, 
             </div>
             <div className="flex gap-1">
                 {[1, 2, 3, 4, 5].map(star => (
-                    <button
-                        key={star}
-                        type="button"
-                        disabled={readOnly}
-                        onClick={() => onChange?.(star)}
-                        onMouseEnter={() => onHover?.(star)}
-                        onMouseLeave={() => onLeave?.()}
-                        className={`text-2xl transition-all duration-100 select-none
-                            ${readOnly ? 'cursor-default' : 'cursor-pointer hover:scale-110 active:scale-95'}
-                            ${star <= active ? 'text-yellow-400' : 'text-gray-200'}`}
-                        aria-label={`${label} ${star} sao`}
-                    >
-                        ★
-                    </button>
+                    <button key={star} type="button" disabled={readOnly}
+                        onClick={() => onChange?.(star)} onMouseEnter={() => onHover?.(star)} onMouseLeave={() => onLeave?.()}
+                        className={`text-2xl transition-all duration-100 select-none ${readOnly ? 'cursor-default' : 'cursor-pointer hover:scale-110 active:scale-95'} ${star <= active ? 'text-yellow-400' : 'text-gray-200'}`}
+                        aria-label={`${label} ${star} sao`}>\u2605</button>
                 ))}
             </div>
-            {value > 0 && (
-                <span className="text-xs font-bold text-orange-600 ml-1">{value}/5</span>
-            )}
+            {value > 0 && <span className="text-xs font-bold text-orange-600 ml-1">{value}/5</span>}
         </div>
     );
 }
 
-// ─── Main Component ────────────────────────────────────────────────────────────
 export default function RestaurantDetailClient({ data, slug }: RestaurantDetailClientProps) {
     const router = useRouter();
     const ratingFormRef = useRef<HTMLDivElement>(null);
-
-    // ── UI state
     const [isReportModalOpen, setIsReportModalOpen] = useState(false);
     const [isMounted, setIsMounted] = useState(false);
     const [lightboxOpen, setLightboxOpen] = useState(false);
     const [lightboxImages, setLightboxImages] = useState<string[]>([]);
     const [lightboxIndex, setLightboxIndex] = useState(0);
     const [touchStartX, setTouchStartX] = useState<number | null>(null);
-
-    // ── Identity
     const [fingerprint, setFingerprint] = useState<string | null>(null);
-
-    // ── Firebase aggregated stats
     const [ratingStats, setRatingStats] = useState<RatingStats | null>(null);
-
-    // ── Form: rating criteria state
     const [criteria, setCriteria] = useState<CriteriaRatings>({ taste: 0, price: 0, service: 0, space: 0 });
     const [hoverCriteria, setHoverCriteria] = useState<CriteriaRatings>({ taste: 0, price: 0, service: 0, space: 0 });
-
-    // ── Form: mode
     const [existingReview, setExistingReview] = useState<UserReview | null>(null);
-    const [isViewMode, setIsViewMode] = useState(false);   // đã đánh giá, đang xem
-    const [isEditMode, setIsEditMode] = useState(false);   // đang chỉnh sửa
+    const [isViewMode, setIsViewMode] = useState(false);
+    const [isEditMode, setIsEditMode] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [submitMessage, setSubmitMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-    // ─────────────────────────────────────────────────────
-    // Effects
-    // ─────────────────────────────────────────────────────
     useEffect(() => { setIsMounted(true); }, []);
+    useEffect(() => { fpPromise.load().then(fp => fp.get()).then(r => setFingerprint(r.visitorId)); }, []);
 
-    // Load fingerprint
-    useEffect(() => {
-        fpPromise.load().then(fp => fp.get()).then(r => setFingerprint(r.visitorId));
-    }, []);
-
-    // Listen to aggregated ratings from Firebase
     useEffect(() => {
         if (!data?.id) return;
         const statsRef = ref(db, `ratings/${data.id}`);
-        const unsub = onValue(statsRef, snap => {
-            if (snap.exists()) {
-                setRatingStats(snap.val() as RatingStats);
-            } else {
-                setRatingStats(null);
-            }
-        });
+        const unsub = onValue(statsRef, snap => { setRatingStats(snap.exists() ? (snap.val() as RatingStats) : null); });
         return () => unsub();
     }, [data?.id]);
 
-    // Load existing review when fingerprint is ready
     useEffect(() => {
         if (!fingerprint || !data?.id) return;
         const reviewRef = ref(db, `reviews/${data.id}/${fingerprint}`);
@@ -190,15 +98,11 @@ export default function RestaurantDetailClient({ data, slug }: RestaurantDetailC
                 const rev = snap.val() as UserReview;
                 setExistingReview(rev);
                 setCriteria({ taste: rev.taste, price: rev.price, service: rev.service, space: rev.space });
-                setIsViewMode(true);
-                setIsEditMode(false);
+                setIsViewMode(true); setIsEditMode(false);
             }
         });
     }, [fingerprint, data?.id]);
 
-    // ─────────────────────────────────────────────────────
-    // Lightbox
-    // ─────────────────────────────────────────────────────
     useEffect(() => {
         if (!lightboxOpen) return;
         document.body.style.overflow = 'hidden';
@@ -223,76 +127,60 @@ export default function RestaurantDetailClient({ data, slug }: RestaurantDetailC
     const openMenuLightbox = () => {
         if (!data?.menu_images?.length) return;
         setLightboxImages(data.menu_images.map(img => img.sourceUrl));
-        setLightboxIndex(0);
-        setLightboxOpen(true);
+        setLightboxIndex(0); setLightboxOpen(true);
     };
     void openMenuLightbox;
 
-    // ─────────────────────────────────────────────────────
-    // Rating Submit (YC2 + YC3)
-    // ─────────────────────────────────────────────────────
     const isAllFilled = criteria.taste > 0 && criteria.price > 0 && criteria.service > 0 && criteria.space > 0;
-    const overallRating = isAllFilled
-        ? r1((criteria.taste + criteria.price + criteria.service + criteria.space) / 4)
-        : 0;
+    const overallRating = isAllFilled ? r1((criteria.taste + criteria.price + criteria.service + criteria.space) / 4) : 0;
 
     const handleSubmit = async () => {
         if (!fingerprint || !isAllFilled || isSubmitting) return;
-        setIsSubmitting(true);
-        setSubmitMessage(null);
-
+        setIsSubmitting(true); setSubmitMessage(null);
         try {
-            // Lấy IP
             let ip = 'unknown';
-            try {
-                const ipRes = await fetch('https://api.ipify.org?format=json');
-                const ipData = await ipRes.json();
-                ip = ipData.ip;
-            } catch { /* ignore IP fetch error */ }
+            try { const ipRes = await fetch('https://api.ipify.org?format=json'); const ipData = await ipRes.json(); ip = ipData.ip; } catch { /* ignore */ }
 
             const newReview: UserReview = {
-                taste: criteria.taste,
-                price: criteria.price,
-                service: criteria.service,
-                space: criteria.space,
-                overall: overallRating,
-                timestamp: Date.now(),
-                ip,
-                visitorId: fingerprint,
+                taste: criteria.taste, price: criteria.price, service: criteria.service,
+                space: criteria.space, overall: overallRating,
+                timestamp: Date.now(), ip, visitorId: fingerprint,
             };
 
             const reviewRef = ref(db, `reviews/${data.id}/${fingerprint}`);
             const statsRef = ref(db, `ratings/${data.id}`);
 
-            // Firebase Transaction: Upsert aggregated stats (YC2)
-            // Trừ điểm cũ nếu đang edit, cộng điểm mới. Fix floating-point dùng r1().
-            const oldReview = existingReview;
+            // BUG FIX: Always read directly from Firebase before transaction.
+            // Do NOT use React state (existingReview) — it can be stale.
+            // If a previous submit errored after the transaction succeeded but before
+            // set() completed, state stays null while Firebase already has the review.
+            // On retry, this caused count to be incremented again (wrong: +1 per retry).
+            // Solution: fetch live data and use that as the source of truth.
+            const liveSnap = await get(reviewRef);
+            const liveExistingReview: UserReview | null = liveSnap.exists()
+                ? (liveSnap.val() as UserReview) : null;
 
             await runTransaction(statsRef, (current: RatingStats | null) => {
                 if (current === null) {
-                    // Lần đầu tiên có review ở quán này
                     return {
                         count: 1,
-                        totalTaste: r1(newReview.taste),
-                        totalPrice: r1(newReview.price),
-                        totalService: r1(newReview.service),
-                        totalSpace: r1(newReview.space),
+                        totalTaste: r1(newReview.taste), totalPrice: r1(newReview.price),
+                        totalService: r1(newReview.service), totalSpace: r1(newReview.space),
                         totalOverall: r1(newReview.overall),
                     } as RatingStats;
                 }
-
-                if (oldReview) {
-                    // EDIT: trừ điểm cũ, cộng điểm mới, count không đổi
+                if (liveExistingReview) {
+                    // UPSERT: user already has a review — count STAYS THE SAME
                     return {
                         count: current.count,
-                        totalTaste:   r1((current.totalTaste   || 0) - oldReview.taste    + newReview.taste),
-                        totalPrice:   r1((current.totalPrice   || 0) - oldReview.price    + newReview.price),
-                        totalService: r1((current.totalService || 0) - oldReview.service  + newReview.service),
-                        totalSpace:   r1((current.totalSpace   || 0) - oldReview.space    + newReview.space),
-                        totalOverall: r1((current.totalOverall || 0) - oldReview.overall  + newReview.overall),
+                        totalTaste:   r1((current.totalTaste   || 0) - liveExistingReview.taste    + newReview.taste),
+                        totalPrice:   r1((current.totalPrice   || 0) - liveExistingReview.price    + newReview.price),
+                        totalService: r1((current.totalService || 0) - liveExistingReview.service  + newReview.service),
+                        totalSpace:   r1((current.totalSpace   || 0) - liveExistingReview.space    + newReview.space),
+                        totalOverall: r1((current.totalOverall || 0) - liveExistingReview.overall  + newReview.overall),
                     } as RatingStats;
                 } else {
-                    // THÊM MỚI: cộng thêm 1
+                    // NEW review: count +1 exactly once
                     return {
                         count: (current.count || 0) + 1,
                         totalTaste:   r1((current.totalTaste   || 0) + newReview.taste),
@@ -304,130 +192,70 @@ export default function RestaurantDetailClient({ data, slug }: RestaurantDetailC
                 }
             });
 
-            // Ghi/ghi đè review của user (set = upsert)
             await set(reviewRef, newReview);
-
-            setExistingReview(newReview);
-            setIsViewMode(true);
-            setIsEditMode(false);
-            setSubmitMessage({ type: 'success', text: oldReview ? 'Đã cập nhật đánh giá của bạn! 🎉' : 'Cảm ơn bạn đã đánh giá! 🎉' });
-
+            setExistingReview(newReview); setIsViewMode(true); setIsEditMode(false);
+            setSubmitMessage({
+                type: 'success',
+                text: liveExistingReview ? '\u0110\u00e3 c\u1eadp nh\u1eadt \u0111\u00e1nh gi\u00e1 c\u1ee7a b\u1ea1n! \ud83c\udf89' : 'C\u1ea3m \u01a1n b\u1ea1n \u0111\u00e3 \u0111\u00e1nh gi\u00e1! \ud83c\udf89',
+            });
         } catch (error) {
             console.error('Rating error:', error);
-            setSubmitMessage({ type: 'error', text: 'Đã có lỗi xảy ra. Vui lòng thử lại sau!' });
-        } finally {
-            setIsSubmitting(false);
-        }
+            setSubmitMessage({ type: 'error', text: '\u0110\u00e3 c\u00f3 l\u1ed7i x\u1ea3y ra. Vui l\u00f2ng th\u1eed l\u1ea1i sau!' });
+        } finally { setIsSubmitting(false); }
     };
 
-    // ─────────────────────────────────────────────────────
-    // YC4: Tính toán 3 tầng hiển thị điểm
-    // ─────────────────────────────────────────────────────
     const hasFirebaseData = ratingStats !== null && ratingStats.count > 0;
-
-    // Tầng 1: Firebase averages (thang 5 → thang 10)
     const firebaseScores = hasFirebaseData ? {
-        taste:   r1((ratingStats.totalTaste   / ratingStats.count) * 2),
-        price:   r1((ratingStats.totalPrice   / ratingStats.count) * 2),
-        service: r1((ratingStats.totalService / ratingStats.count) * 2),
-        space:   r1((ratingStats.totalSpace   / ratingStats.count) * 2),
-        overall: r1((ratingStats.totalOverall / ratingStats.count) * 2),
+        taste:   r1((ratingStats!.totalTaste   / ratingStats!.count) * 2),
+        price:   r1((ratingStats!.totalPrice   / ratingStats!.count) * 2),
+        service: r1((ratingStats!.totalService / ratingStats!.count) * 2),
+        space:   r1((ratingStats!.totalSpace   / ratingStats!.count) * 2),
+        overall: r1((ratingStats!.totalOverall / ratingStats!.count) * 2),
     } : null;
 
-    // Tầng 2: Admin WP scores (thang 10 trực tiếp)
     const adminTaste   = Number(data.rating_food || 0);
     const adminPrice   = Number(data.rating_price || 0);
     const adminService = Number(data.rating_service || 0);
     const adminSpace   = Number(data.rating_ambiance || 0);
     const hasAdminData = adminTaste > 0 || adminPrice > 0 || adminService > 0 || adminSpace > 0;
-
     const adminScores = hasAdminData ? {
-        taste:   adminTaste,
-        price:   adminPrice,
-        service: adminService,
-        space:   adminSpace,
-        overall: (() => {
-            const vals = [adminTaste, adminPrice, adminService, adminSpace].filter(v => v > 0);
-            return vals.length ? r1(vals.reduce((a, b) => a + b) / vals.length) : 0;
-        })(),
+        taste: adminTaste, price: adminPrice, service: adminService, space: adminSpace,
+        overall: (() => { const v = [adminTaste, adminPrice, adminService, adminSpace].filter(x => x > 0); return v.length ? r1(v.reduce((a, b) => a + b) / v.length) : 0; })(),
     } : null;
-
-    // Lấy nguồn điểm dùng hiển thị
     const displayScores = firebaseScores ?? adminScores;
     const isAdminFallback = !firebaseScores && !!adminScores;
     const isEmpty = !firebaseScores && !adminScores;
 
-    // Admin overall (dùng cho hero header badge)
-    const adminOverallForHeader = adminScores?.overall ?? null;
-
+    const enterEditMode = () => {
+        if (existingReview) setCriteria({ taste: existingReview.taste, price: existingReview.price, service: existingReview.service, space: existingReview.space });
+        setIsEditMode(true); setIsViewMode(false); setSubmitMessage(null);
+    };
+    const scrollToRatingForm = () => ratingFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     const currentUrl = `https://anuongcangiuoc.org/quan-an/${slug}`;
 
-    // ─────────────────────────────────────────────────────
-    // YC3 HELPER: Reset form to edit
-    // ─────────────────────────────────────────────────────
-    const enterEditMode = () => {
-        if (existingReview) {
-            setCriteria({ taste: existingReview.taste, price: existingReview.price, service: existingReview.service, space: existingReview.space });
-        }
-        setIsEditMode(true);
-        setIsViewMode(false);
-        setSubmitMessage(null);
-    };
-
-    const scrollToRatingForm = () => {
-        ratingFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    };
-
-    // ─────────────────────────────────────────────────────
-    // RENDER
-    // ─────────────────────────────────────────────────────
     return (
         <div className="min-h-screen bg-gray-50">
             <Navbar />
-
-            {/* ── Cover Image Header ─────────────────────────── */}
             <div className="relative h-[250px] md:h-[400px] w-full overflow-hidden">
-                <Image
-                    src={data.featured_media_url || 'https://placehold.co/1200x400?text=Restaurant'}
-                    alt={data.title.rendered}
-                    fill
-                    className="object-cover"
-                    priority
-                />
+                <Image src={data.featured_media_url || 'https://placehold.co/1200x400?text=Restaurant'} alt={data.title.rendered} fill className="object-cover" priority />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
-
-                {/* Mobile Back Button */}
-                <button
-                    onClick={() => router.back()}
-                    className="md:hidden absolute top-4 left-4 z-50 w-10 h-10 bg-white/80 backdrop-blur-sm hover:bg-white rounded-full flex items-center justify-center shadow-lg transition-all active:scale-95"
-                    aria-label="Quay lại"
-                >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-gray-900" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                    </svg>
+                <button onClick={() => router.back()} className="md:hidden absolute top-4 left-4 z-50 w-10 h-10 bg-white/80 backdrop-blur-sm hover:bg-white rounded-full flex items-center justify-center shadow-lg transition-all active:scale-95" aria-label="Quay l\u1ea1i">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-gray-900" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
                 </button>
-
                 <div className="absolute bottom-0 left-0 right-0 p-4 md:p-8 text-white">
                     <div className="container mx-auto">
-                        <h1 className="text-2xl md:text-4xl lg:text-5xl font-extrabold mb-2 drop-shadow-lg">
-                            {data.title.rendered}
-                        </h1>
-                        {/* Hiển thị badge điểm tổng hợp ở header */}
-                        {(hasFirebaseData && firebaseScores) ? (
+                        <h1 className="text-2xl md:text-4xl lg:text-5xl font-extrabold mb-2 drop-shadow-lg">{data.title.rendered}</h1>
+                        {hasFirebaseData && firebaseScores ? (
                             <div className="flex items-center gap-2">
                                 <div className="bg-orange-500 text-white px-3 py-1.5 md:px-4 md:py-2 rounded-xl font-bold text-sm md:text-lg shadow-lg flex items-center gap-2">
-                                    <span className="text-lg md:text-2xl">⭐</span>
-                                    <span>{firebaseScores.overall}</span>
-                                    <span className="text-xs md:text-sm opacity-90">/ 10</span>
+                                    <span className="text-lg md:text-2xl">\u2b50</span><span>{firebaseScores.overall}</span><span className="text-xs md:text-sm opacity-90">/ 10</span>
                                 </div>
-                                <span className="text-white/80 text-xs">{ratingStats!.count} lượt đánh giá</span>
+                                <span className="text-white/80 text-xs">{ratingStats!.count} l\u01b0\u1ee3t \u0111\u00e1nh gi\u00e1</span>
                             </div>
-                        ) : adminOverallForHeader ? (
+                        ) : adminScores ? (
                             <div className="flex items-center gap-2">
                                 <div className="bg-gray-600/80 text-white px-3 py-1.5 rounded-xl font-bold text-sm shadow-lg flex items-center gap-2">
-                                    <span>⭐</span>
-                                    <span>{adminOverallForHeader}</span>
-                                    <span className="text-xs opacity-90">/ 10</span>
+                                    <span>\u2b50</span><span>{adminScores.overall}</span><span className="text-xs opacity-90">/ 10</span>
                                 </div>
                             </div>
                         ) : null}
@@ -435,48 +263,37 @@ export default function RestaurantDetailClient({ data, slug }: RestaurantDetailC
                 </div>
             </div>
 
-            {/* ── Main Content ───────────────────────────────── */}
             <div className="container mx-auto px-3 md:px-4 py-6 md:py-10 pb-24 md:pb-10">
-
-                {/* Breadcrumb */}
                 <nav className="text-xs md:text-sm text-gray-500 mb-4 md:mb-6 flex items-center gap-2">
-                    <Link href="/" className="hover:text-orange-500 transition-colors">Trang chủ</Link>
+                    <Link href="/" className="hover:text-orange-500 transition-colors">Trang ch\u1ee7</Link>
                     <span>/</span>
-                    <Link href="/kham-pha" className="hover:text-orange-500 transition-colors">Khám phá</Link>
+                    <Link href="/kham-pha" className="hover:text-orange-500 transition-colors">Kh\u00e1m ph\u00e1</Link>
                     <span>/</span>
                     <span className="text-gray-900 font-medium">{data.title.rendered}</span>
                 </nav>
-
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
-
-                    {/* ── Left Column ─────────────────────────── */}
                     <div className="lg:col-span-2 space-y-6">
-
-                        {/* Quick Info Cards */}
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
                             <div className="bg-white rounded-2xl p-4 md:p-5 border border-gray-100 shadow-sm">
-                                <div className="text-2xl md:text-3xl mb-2">📍</div>
-                                <h3 className="text-xs md:text-sm font-bold text-gray-500 uppercase mb-1">Địa chỉ</h3>
-                                <p className="text-sm md:text-base font-semibold text-gray-900">{data.address || 'Đang cập nhật'}</p>
+                                <div className="text-2xl md:text-3xl mb-2">\ud83d\udccd</div>
+                                <h3 className="text-xs md:text-sm font-bold text-gray-500 uppercase mb-1">\u0110\u1ecba ch\u1ec9</h3>
+                                <p className="text-sm md:text-base font-semibold text-gray-900">{data.address || '\u0110ang c\u1eadp nh\u1eadt'}</p>
                             </div>
                             <div className="bg-white rounded-2xl p-4 md:p-5 border border-gray-100 shadow-sm">
-                                <div className="text-2xl md:text-3xl mb-2">🕒</div>
-                                <h3 className="text-xs md:text-sm font-bold text-gray-500 uppercase mb-1">Giờ mở cửa</h3>
-                                <p className="text-sm md:text-base font-semibold text-gray-900">{data.hours || 'Đang cập nhật'}</p>
+                                <div className="text-2xl md:text-3xl mb-2">\ud83d\udd52</div>
+                                <h3 className="text-xs md:text-sm font-bold text-gray-500 uppercase mb-1">Gi\u1edd m\u1edf c\u1eeda</h3>
+                                <p className="text-sm md:text-base font-semibold text-gray-900">{data.hours || '\u0110ang c\u1eadp nh\u1eadt'}</p>
                             </div>
                             <div className="bg-white rounded-2xl p-4 md:p-5 border border-gray-100 shadow-sm">
-                                <div className="text-2xl md:text-3xl mb-2">💰</div>
-                                <h3 className="text-xs md:text-sm font-bold text-gray-500 uppercase mb-1">Khoảng giá</h3>
-                                <p className="text-sm md:text-base font-semibold text-orange-600">{data.price || 'Đang cập nhật'}</p>
+                                <div className="text-2xl md:text-3xl mb-2">\ud83d\udcb0</div>
+                                <h3 className="text-xs md:text-sm font-bold text-gray-500 uppercase mb-1">Kho\u1ea3ng gi\u00e1</h3>
+                                <p className="text-sm md:text-base font-semibold text-orange-600">{data.price || '\u0110ang c\u1eadp nh\u1eadt'}</p>
                             </div>
                         </div>
 
-                        {/* Amenities / Badges */}
                         {data.badges && data.badges.length > 0 && (
                             <div className="bg-white rounded-2xl p-4 md:p-6 border border-gray-100 shadow-sm">
-                                <h2 className="text-lg md:text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-                                    <span>🏷️</span> Tiện ích &amp; Đặc điểm
-                                </h2>
+                                <h2 className="text-lg md:text-xl font-bold text-gray-900 mb-4 flex items-center gap-2"><span>\ud83c\udff7\ufe0f</span> Ti\u1ec7n \u00edch &amp; \u0110\u1eb7c \u0111i\u1ec3m</h2>
                                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                                     {data.badges.map((badgeKey) => {
                                         const badgeData = BADGE_LABELS[badgeKey as keyof typeof BADGE_LABELS];
@@ -493,354 +310,183 @@ export default function RestaurantDetailClient({ data, slug }: RestaurantDetailC
                             </div>
                         )}
 
-                        {/* Description */}
                         {data.content && data.content.rendered && (
                             <div className="bg-white rounded-2xl p-4 md:p-6 border border-gray-100 shadow-sm">
-                                <h2 className="text-lg md:text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-                                    <span>📝</span> Giới thiệu
-                                </h2>
-                                <div
-                                    className="prose prose-sm md:prose-base max-w-none text-gray-700 leading-relaxed"
-                                    dangerouslySetInnerHTML={{ __html: data.content.rendered }}
-                                />
+                                <h2 className="text-lg md:text-xl font-bold text-gray-900 mb-4 flex items-center gap-2"><span>\ud83d\udcdd</span> Gi\u1edbi thi\u1ec7u</h2>
+                                <div className="prose prose-sm md:prose-base max-w-none text-gray-700 leading-relaxed" dangerouslySetInnerHTML={{ __html: data.content.rendered }} />
                             </div>
                         )}
 
-                        {/* Menu Images */}
-                        {data.menu_images && data.menu_images.length > 0 && (
-                            <ImageGallery images={data.menu_images} title="Thực Đơn" icon="📋" />
-                        )}
+                        {data.menu_images && data.menu_images.length > 0 && <ImageGallery images={data.menu_images} title="Th\u1ef1c \u0110\u01a1n" icon="\ud83d\udccb" />}
+                        {data.gallery_images && data.gallery_images.length > 0 && <ImageGallery images={data.gallery_images} title="Kh\u00f4ng Gian Qu\u00e1n" icon="\ud83c\udff7\ufe0f" />}
 
-                        {/* Gallery Images */}
-                        {data.gallery_images && data.gallery_images.length > 0 && (
-                            <ImageGallery images={data.gallery_images} title="Không Gian Quán" icon="🏪" />
-                        )}
-
-                        {/* ── Community Rating Form (YC3) ──────── */}
                         <div ref={ratingFormRef} className="bg-white rounded-2xl p-4 md:p-6 border border-gray-100 shadow-sm">
                             <div className="bg-gradient-to-b from-orange-50 to-white border border-orange-100 rounded-xl p-5 md:p-6 mb-6 shadow-sm">
-                                <h3 className="text-gray-900 font-bold text-lg md:text-xl mb-1 flex items-center justify-center gap-2">
-                                    <span>💬</span> Đánh giá của bạn
-                                </h3>
-                                <p className="text-gray-500 text-sm text-center mb-5">
-                                    Chấm điểm 4 tiêu chí để cộng đồng có thêm thông tin nhé!
-                                </p>
+                                <h3 className="text-gray-900 font-bold text-lg md:text-xl mb-1 flex items-center justify-center gap-2"><span>\ud83d\udcac</span> \u0110\u00e1nh gi\u00e1 c\u1ee7a b\u1ea1n</h3>
+                                <p className="text-gray-500 text-sm text-center mb-5">Ch\u1ea5m \u0111i\u1ec3m 4 ti\u00eau ch\u00ed \u0111\u1ec3 c\u1ed9ng \u0111\u1ed3ng c\u00f3 th\u00eam th\u00f4ng tin nh\u00e9!</p>
 
-                                {/* ── VIEW MODE ── */}
                                 {isViewMode && !isEditMode && existingReview && (
                                     <div>
                                         <div className="space-y-3 mb-4">
-                                            {CRITERIA.map(c => (
-                                                <StarRow
-                                                    key={c.key}
-                                                    label={c.label}
-                                                    icon={c.icon}
-                                                    value={criteria[c.key]}
-                                                    hoverValue={0}
-                                                    readOnly
-                                                />
-                                            ))}
+                                            {CRITERIA.map(c => <StarRow key={c.key} label={c.label} icon={c.icon} value={criteria[c.key]} hoverValue={0} readOnly />)}
                                         </div>
                                         <div className="flex items-center justify-between">
-                                            <div className="text-sm text-gray-500">
-                                                Điểm tổng: <span className="font-bold text-orange-600">{existingReview.overall}/5</span>
-                                            </div>
-                                            <button
-                                                onClick={enterEditMode}
-                                                className="flex items-center gap-1.5 bg-orange-50 hover:bg-orange-100 text-orange-700 font-bold px-4 py-2 rounded-xl text-sm transition-all border border-orange-200"
-                                            >
-                                                ✏️ Sửa đánh giá
+                                            <div className="text-sm text-gray-500">\u0110i\u1ec3m t\u1ed5ng: <span className="font-bold text-orange-600">{existingReview.overall}/5</span></div>
+                                            <button onClick={enterEditMode} className="flex items-center gap-1.5 bg-orange-50 hover:bg-orange-100 text-orange-700 font-bold px-4 py-2 rounded-xl text-sm transition-all border border-orange-200">
+                                                \u270f\ufe0f S\u1eeda \u0111\u00e1nh gi\u00e1
                                             </button>
                                         </div>
-                                        {submitMessage && (
-                                            <div className={`mt-3 text-center text-sm font-semibold py-2 rounded-lg ${submitMessage.type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
-                                                {submitMessage.text}
-                                            </div>
-                                        )}
+                                        {submitMessage && <div className={`mt-3 text-center text-sm font-semibold py-2 rounded-lg ${submitMessage.type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>{submitMessage.text}</div>}
                                     </div>
                                 )}
 
-                                {/* ── EDIT / SUBMIT MODE ── */}
                                 {(!isViewMode || isEditMode) && (
                                     <div>
                                         <div className="space-y-3 mb-5">
                                             {CRITERIA.map(c => (
-                                                <StarRow
-                                                    key={c.key}
-                                                    label={c.label}
-                                                    icon={c.icon}
-                                                    value={criteria[c.key]}
-                                                    hoverValue={hoverCriteria[c.key]}
+                                                <StarRow key={c.key} label={c.label} icon={c.icon}
+                                                    value={criteria[c.key]} hoverValue={hoverCriteria[c.key]}
                                                     onChange={v => setCriteria(prev => ({ ...prev, [c.key]: v }))}
                                                     onHover={v => setHoverCriteria(prev => ({ ...prev, [c.key]: v }))}
-                                                    onLeave={() => setHoverCriteria(prev => ({ ...prev, [c.key]: 0 }))}
-                                                />
+                                                    onLeave={() => setHoverCriteria(prev => ({ ...prev, [c.key]: 0 }))} />
                                             ))}
                                         </div>
-
-                                        {/* Overall preview */}
                                         {isAllFilled && (
                                             <div className="bg-orange-50 rounded-xl p-3 mb-4 flex items-center justify-between">
-                                                <span className="text-sm text-gray-600 font-medium">Điểm tổng hợp:</span>
-                                                <div className="flex items-center gap-1">
-                                                    <span className="text-orange-400 text-lg">★</span>
-                                                    <span className="font-extrabold text-orange-600 text-lg">{overallRating}</span>
-                                                    <span className="text-gray-400 text-sm">/5</span>
-                                                </div>
+                                                <span className="text-sm text-gray-600 font-medium">\u0110i\u1ec3m t\u1ed5ng h\u1ee3p:</span>
+                                                <div className="flex items-center gap-1"><span className="text-orange-400 text-lg">\u2605</span><span className="font-extrabold text-orange-600 text-lg">{overallRating}</span><span className="text-gray-400 text-sm">/5</span></div>
                                             </div>
                                         )}
-
                                         <div className="flex gap-3">
-                                            {isEditMode && (
-                                                <button
-                                                    onClick={() => { setIsEditMode(false); setIsViewMode(true); setSubmitMessage(null); }}
-                                                    className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-3 rounded-xl transition-all text-sm"
-                                                >
-                                                    Hủy
-                                                </button>
-                                            )}
-                                            <button
-                                                onClick={handleSubmit}
-                                                disabled={!isAllFilled || isSubmitting || !fingerprint}
-                                                className={`flex-1 font-bold py-3 rounded-xl transition-all text-sm
-                                                    ${isAllFilled && !isSubmitting && fingerprint
-                                                        ? 'bg-orange-500 hover:bg-orange-600 text-white shadow-md shadow-orange-200 hover:shadow-lg active:scale-98'
-                                                        : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}
-                                            >
-                                                {isSubmitting ? '⏳ Đang gửi...' : isEditMode ? '💾 Lưu thay đổi' : '🌟 Gửi đánh giá'}
+                                            {isEditMode && <button onClick={() => { setIsEditMode(false); setIsViewMode(true); setSubmitMessage(null); }} className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-3 rounded-xl transition-all text-sm">H\u1ee7y</button>}
+                                            <button onClick={handleSubmit} disabled={!isAllFilled || isSubmitting || !fingerprint}
+                                                className={`flex-1 font-bold py-3 rounded-xl transition-all text-sm ${isAllFilled && !isSubmitting && fingerprint ? 'bg-orange-500 hover:bg-orange-600 text-white shadow-md shadow-orange-200 hover:shadow-lg active:scale-95' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}>
+                                                {isSubmitting ? '\u23f3 \u0110ang g\u1eedi...' : isEditMode ? '\ud83d\udcbe L\u01b0u thay \u0111\u1ed5i' : '\ud83c\udf1f G\u1eedi \u0111\u00e1nh gi\u00e1'}
                                             </button>
                                         </div>
-
-                                        {!isAllFilled && (
-                                            <p className="text-center text-xs text-gray-400 mt-2">
-                                                Vui lòng chấm đủ {CRITERIA.filter(c => criteria[c.key] === 0).length} tiêu chí còn lại để gửi
-                                            </p>
-                                        )}
-
-                                        {submitMessage && (
-                                            <div className={`mt-3 text-center text-sm font-semibold py-2 rounded-lg ${submitMessage.type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
-                                                {submitMessage.text}
-                                            </div>
-                                        )}
+                                        {!isAllFilled && <p className="text-center text-xs text-gray-400 mt-2">Vui l\u00f2ng ch\u1ea5m \u0111\u1ee7 {CRITERIA.filter(c => criteria[c.key] === 0).length} ti\u00eau ch\u00ed c\u00f2n l\u1ea1i \u0111\u1ec3 g\u1eedi</p>}
+                                        {submitMessage && <div className={`mt-3 text-center text-sm font-semibold py-2 rounded-lg ${submitMessage.type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>{submitMessage.text}</div>}
                                     </div>
                                 )}
                             </div>
-
-                            {/* Facebook Comments */}
-                            <div className="w-full min-h-[200px]">
-                                {isMounted && <FacebookComments url={currentUrl} numPosts={5} />}
-                            </div>
+                            <div className="w-full min-h-[200px]">{isMounted && <FacebookComments url={currentUrl} numPosts={5} />}</div>
                         </div>
-
                     </div>
 
-                    {/* ── Right Column ─────────────────────────── */}
                     <div className="space-y-6 sticky top-24 self-start">
-
-                        {/* Action Buttons (Desktop) */}
                         <div className="hidden md:block bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
-                            <h2 className="text-lg font-bold text-gray-900 mb-4">Liên hệ</h2>
+                            <h2 className="text-lg font-bold text-gray-900 mb-4">Li\u00ean h\u1ec7</h2>
                             <div className="space-y-3">
-                                {(data as any).zalo_phone && (
-                                    <a href={`https://zalo.me/${(data as any).zalo_phone}`} target="_blank" rel="noopener noreferrer"
-                                        className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg">
-                                        <span className="text-xl">💬</span><span>Chat Zalo</span>
-                                    </a>
-                                )}
-                                {!(data as any).zalo_phone && data.phone && (
-                                    <a href={`tel:${data.phone}`}
-                                        className="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg">
-                                        <span className="text-xl">📞</span><span>Gọi ngay</span>
-                                    </a>
-                                )}
-                                {!(data as any).zalo_phone && !data.phone && data.map_link && (
-                                    <a href={data.map_link} target="_blank" rel="noopener noreferrer"
-                                        className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg">
-                                        <span className="text-xl">🗺️</span><span>Chỉ đường</span>
-                                    </a>
-                                )}
-                                {data.map_link && (data.phone || (data as any).zalo_phone) && (
-                                    <a href={data.map_link} target="_blank" rel="noopener noreferrer"
-                                        className="w-full bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-all border border-blue-200">
-                                        <span className="text-xl">🗺️</span><span>Chỉ đường</span>
-                                    </a>
-                                )}
-                                <button onClick={() => setIsReportModalOpen(true)}
-                                    className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-3 rounded-xl flex items-center justify-center gap-2 transition-all border-2 border-gray-200">
-                                    <span className="text-lg">🚩</span><span>Báo cáo lỗi</span>
-                                </button>
+                                {(data as any).zalo_phone && <a href={`https://zalo.me/${(data as any).zalo_phone}`} target="_blank" rel="noopener noreferrer" className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg"><span className="text-xl">\ud83d\udcac</span><span>Chat Zalo</span></a>}
+                                {!(data as any).zalo_phone && data.phone && <a href={`tel:${data.phone}`} className="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg"><span className="text-xl">\ud83d\udcde</span><span>G\u1ecdi ngay</span></a>}
+                                {!(data as any).zalo_phone && !data.phone && data.map_link && <a href={data.map_link} target="_blank" rel="noopener noreferrer" className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg"><span className="text-xl">\ud83d\uddfa\ufe0f</span><span>Ch\u1ec9 \u0111\u01b0\u1eddng</span></a>}
+                                {data.map_link && (data.phone || (data as any).zalo_phone) && <a href={data.map_link} target="_blank" rel="noopener noreferrer" className="w-full bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-all border border-blue-200"><span className="text-xl">\ud83d\uddfa\ufe0f</span><span>Ch\u1ec9 \u0111\u01b0\u1eddng</span></a>}
+                                <button onClick={() => setIsReportModalOpen(true)} className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-3 rounded-xl flex items-center justify-center gap-2 transition-all border-2 border-gray-200"><span className="text-lg">\ud83d\udea9</span><span>B\u00e1o c\u00e1o l\u1ed7i</span></button>
                             </div>
                         </div>
 
-                        {/* ── YC4: Detailed Score Block (3-tier) ── */}
                         <div className="bg-white rounded-2xl p-4 md:p-6 border border-gray-100 shadow-sm">
-                            <h2 className="text-lg md:text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-                                <span>⭐</span> Đánh giá chi tiết
-                            </h2>
-
-                            {/* Tầng 1 & 2: Có điểm hiển thị */}
+                            <h2 className="text-lg md:text-xl font-bold text-gray-900 mb-4 flex items-center gap-2"><span>\u2b50</span> \u0110\u00e1nh gi\u00e1 chi ti\u1ebft</h2>
                             {!isEmpty && displayScores && (
                                 <div className="space-y-4">
-                                    {/* Note nguồn dữ liệu */}
-                                    {isAdminFallback && (
-                                        <div className="text-xs text-gray-400 italic bg-gray-50 rounded-lg px-3 py-2 flex items-center gap-1.5">
-                                            <span>ℹ️</span>
-                                            <span>Điểm tham khảo từ Admin · Chưa có đánh giá cộng đồng</span>
-                                        </div>
-                                    )}
-                                    {hasFirebaseData && ratingStats && (
-                                        <div className="text-xs text-orange-600 font-semibold bg-orange-50 rounded-lg px-3 py-2 flex items-center gap-1.5">
-                                            <span>🔥</span>
-                                            <span>Dựa trên {ratingStats.count} đánh giá cộng đồng</span>
-                                        </div>
-                                    )}
-
-                                    {/* 4 Progress Bars */}
+                                    {isAdminFallback && <div className="text-xs text-gray-400 italic bg-gray-50 rounded-lg px-3 py-2 flex items-center gap-1.5"><span>\u2139\ufe0f</span><span>\u0110i\u1ec3m tham kh\u1ea3o t\u1eeb Admin \u00b7 Ch\u01b0a c\u00f3 \u0111\u00e1nh gi\u00e1 c\u1ed9ng \u0111\u1ed3ng</span></div>}
+                                    {hasFirebaseData && ratingStats && <div className="text-xs text-orange-600 font-semibold bg-orange-50 rounded-lg px-3 py-2 flex items-center gap-1.5"><span>\ud83d\udd25</span><span>D\u1ef1a tr\u00ean {ratingStats.count} \u0111\u00e1nh gi\u00e1 c\u1ed9ng \u0111\u1ed3ng</span></div>}
                                     {CRITERIA.map(c => {
                                         const score = displayScores[c.key as keyof typeof displayScores];
                                         return (
                                             <div key={c.key}>
                                                 <div className="flex items-center justify-between mb-1.5">
-                                                    <span className="text-xs md:text-sm font-semibold text-gray-700 flex items-center gap-1.5">
-                                                        <span>{c.icon}</span>{c.label}
-                                                    </span>
-                                                    <span className="text-sm md:text-base font-bold text-orange-600">
-                                                        {score.toFixed(1)}/10
-                                                    </span>
+                                                    <span className="text-xs md:text-sm font-semibold text-gray-700 flex items-center gap-1.5"><span>{c.icon}</span>{c.label}</span>
+                                                    <span className="text-sm md:text-base font-bold text-orange-600">{score.toFixed(1)}/10</span>
                                                 </div>
                                                 <div className="w-full bg-gray-100 rounded-full h-2 md:h-2.5 overflow-hidden">
-                                                    <div
-                                                        className="bg-gradient-to-r from-orange-400 to-orange-600 h-full rounded-full transition-all duration-700"
-                                                        style={{ width: `${(score / 10) * 100}%` }}
-                                                    />
+                                                    <div className="bg-gradient-to-r from-orange-400 to-orange-600 h-full rounded-full transition-all duration-700" style={{ width: `${(score / 10) * 100}%` }} />
                                                 </div>
                                             </div>
                                         );
                                     })}
-
-                                    {/* Overall */}
                                     <div className="mt-5 pt-5 border-t border-gray-100 text-center">
-                                        <p className="text-xs text-gray-500 mb-1">Điểm trung bình</p>
-                                        <div className="text-3xl md:text-4xl font-extrabold text-orange-600">
-                                            {displayScores.overall.toFixed(1)}
-                                        </div>
-                                        <div className="text-yellow-400 text-xl mt-1">★★★★★</div>
-                                        <p className="text-xs text-gray-400 mt-0.5">/ 10 điểm</p>
+                                        <p className="text-xs text-gray-500 mb-1">\u0110i\u1ec3m trung b\u00ecnh</p>
+                                        <div className="text-3xl md:text-4xl font-extrabold text-orange-600">{displayScores.overall.toFixed(1)}</div>
+                                        <div className="text-yellow-400 text-xl mt-1">\u2605\u2605\u2605\u2605\u2605</div>
+                                        <p className="text-xs text-gray-400 mt-0.5">/ 10 \u0111i\u1ec3m</p>
                                     </div>
                                 </div>
                             )}
-
-                            {/* Tầng 3: Empty State CTA */}
                             {isEmpty && (
                                 <div className="flex flex-col items-center text-center py-4 gap-4">
-                                    <div className="text-5xl">🍽️</div>
+                                    <div className="text-5xl">\ud83c\udf7d\ufe0f</div>
                                     <div>
-                                        <p className="font-bold text-gray-800 text-sm md:text-base mb-1">
-                                            Chưa có đánh giá chi tiết
-                                        </p>
-                                        <p className="text-gray-500 text-xs md:text-sm leading-relaxed">
-                                            Hãy là người đầu tiên trải nghiệm và chấm điểm cho quán này!
-                                        </p>
+                                        <p className="font-bold text-gray-800 text-sm md:text-base mb-1">Ch\u01b0a c\u00f3 \u0111\u00e1nh gi\u00e1 chi ti\u1ebft</p>
+                                        <p className="text-gray-500 text-xs md:text-sm leading-relaxed">H\u00e3y l\u00e0 ng\u01b0\u1eddi \u0111\u1ea7u ti\u00ean tr\u1ea3i nghi\u1ec7m v\u00e0 ch\u1ea5m \u0111i\u1ec3m cho qu\u00e1n n\u00e0y!</p>
                                     </div>
-                                    <button
-                                        onClick={scrollToRatingForm}
-                                        className="bg-orange-500 hover:bg-orange-600 text-white font-bold px-5 py-2.5 rounded-xl text-sm transition-all shadow-md shadow-orange-200 hover:shadow-lg active:scale-95"
-                                    >
-                                        🌟 Đánh giá ngay
-                                    </button>
+                                    <button onClick={scrollToRatingForm} className="bg-orange-500 hover:bg-orange-600 text-white font-bold px-5 py-2.5 rounded-xl text-sm transition-all shadow-md shadow-orange-200 hover:shadow-lg active:scale-95">\ud83c\udf1f \u0110\u00e1nh gi\u00e1 ngay</button>
                                 </div>
                             )}
                         </div>
-
                     </div>
                 </div>
             </div>
 
-            {/* ── Sticky Footer (Mobile) ──────────────────────── */}
             <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] p-3 md:hidden z-50">
                 <div className="flex gap-3">
                     {data.map_link ? (
-                        <a href={data.map_link} target="_blank" rel="noopener noreferrer"
-                            className="flex-1 bg-white border-2 border-orange-400 text-orange-600 hover:bg-orange-50 font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                            </svg>
-                            <span>Chỉ đường</span>
+                        <a href={data.map_link} target="_blank" rel="noopener noreferrer" className="flex-1 bg-white border-2 border-orange-400 text-orange-600 hover:bg-orange-50 font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                            <span>Ch\u1ec9 \u0111\u01b0\u1eddng</span>
                         </a>
                     ) : (
                         <button disabled className="flex-1 bg-gray-50 border-2 border-gray-200 text-gray-400 font-bold py-3 rounded-xl flex items-center justify-center gap-2 cursor-not-allowed">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                            </svg>
-                            <span>Chỉ đường</span>
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                            <span>Ch\u1ec9 \u0111\u01b0\u1eddng</span>
                         </button>
                     )}
-
                     {(data as any).zalo_phone ? (
-                        <a href={`https://zalo.me/${(data as any).zalo_phone}`} target="_blank" rel="noopener noreferrer"
-                            className="flex-1 bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 shadow-lg shadow-orange-200">
-                            <span className="text-lg">💬</span><span>Chat Zalo</span>
+                        <a href={`https://zalo.me/${(data as any).zalo_phone}`} target="_blank" rel="noopener noreferrer" className="flex-1 bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 shadow-lg shadow-orange-200">
+                            <span className="text-lg">\ud83d\udcac</span><span>Chat Zalo</span>
                         </a>
                     ) : data.phone ? (
-                        <a href={`tel:${data.phone}`}
-                            className="flex-1 bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 shadow-lg shadow-orange-200">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                            </svg>
-                            <span>Gọi Ngay</span>
+                        <a href={`tel:${data.phone}`} className="flex-1 bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 shadow-lg shadow-orange-200">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
+                            <span>G\u1ecdi Ngay</span>
                         </a>
                     ) : (
                         <button disabled className="flex-1 bg-gray-200 text-gray-400 font-bold py-3 rounded-xl flex items-center justify-center gap-2 cursor-not-allowed">
-                            <span className="text-lg">📞</span><span>Liên hệ</span>
+                            <span className="text-lg">\ud83d\udcde</span><span>Li\u00ean h\u1ec7</span>
                         </button>
                     )}
                 </div>
-
-                <button onClick={() => setIsReportModalOpen(true)}
-                    className="w-full mt-2 bg-gray-100 hover:bg-gray-200 text-gray-500 font-medium py-2 rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 text-sm border border-gray-200">
-                    <span>🚩</span><span>Báo cáo thông tin không chính xác</span>
+                <button onClick={() => setIsReportModalOpen(true)} className="w-full mt-2 bg-gray-100 hover:bg-gray-200 text-gray-500 font-medium py-2 rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 text-sm border border-gray-200">
+                    <span>\ud83d\udea9</span><span>B\u00e1o c\u00e1o th\u00f4ng tin kh\u00f4ng ch\u00ednh x\u00e1c</span>
                 </button>
             </div>
 
-            {/* ── Lightbox ────────────────────────────────────── */}
             {lightboxOpen && lightboxImages.length > 0 && (
                 <div className="fixed inset-0 z-[200] bg-black flex flex-col" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
                     <div className="flex items-center justify-between px-4 py-3 bg-black/80 backdrop-blur-sm">
-                        <div className="text-white font-semibold text-base">📖 Thực Đơn</div>
+                        <div className="text-white font-semibold text-base">\ud83d\udcd6 Th\u1ef1c \u0110\u01a1n</div>
                         <div className="text-white/70 text-sm font-medium">{lightboxIndex + 1} / {lightboxImages.length}</div>
-                        <button className="text-white bg-white/20 hover:bg-white/30 active:bg-white/40 rounded-full w-10 h-10 flex items-center justify-center text-lg font-bold transition-all" onClick={() => setLightboxOpen(false)} aria-label="Đóng">✕</button>
+                        <button className="text-white bg-white/20 hover:bg-white/30 active:bg-white/40 rounded-full w-10 h-10 flex items-center justify-center text-lg font-bold transition-all" onClick={() => setLightboxOpen(false)} aria-label="\u0110\u00f3ng">\u2715</button>
                     </div>
                     <div className="flex-1 flex items-center justify-center relative overflow-hidden">
-                        <button className={`absolute left-2 z-10 w-14 h-14 flex items-center justify-center rounded-full text-white text-3xl font-light transition-all active:scale-90 ${lightboxIndex === 0 ? 'bg-white/10 opacity-30 cursor-not-allowed' : 'bg-white/20 hover:bg-white/35'}`} onClick={lightboxPrev} disabled={lightboxIndex === 0} aria-label="Ảnh trước">‹</button>
+                        <button className={`absolute left-2 z-10 w-14 h-14 flex items-center justify-center rounded-full text-white text-3xl font-light transition-all active:scale-90 ${lightboxIndex === 0 ? 'bg-white/10 opacity-30 cursor-not-allowed' : 'bg-white/20 hover:bg-white/35'}`} onClick={lightboxPrev} disabled={lightboxIndex === 0} aria-label="\u1ea2nh tr\u01b0\u1edbc">\u2039</button>
                         <img src={lightboxImages[lightboxIndex]} alt={`Menu ${lightboxIndex + 1}`} className="max-h-full max-w-full object-contain select-none" draggable={false} />
-                        <button className={`absolute right-2 z-10 w-14 h-14 flex items-center justify-center rounded-full text-white text-3xl font-light transition-all active:scale-90 ${lightboxIndex === lightboxImages.length - 1 ? 'bg-white/10 opacity-30 cursor-not-allowed' : 'bg-white/20 hover:bg-white/35'}`} onClick={lightboxNext} disabled={lightboxIndex === lightboxImages.length - 1} aria-label="Ảnh tiếp theo">›</button>
+                        <button className={`absolute right-2 z-10 w-14 h-14 flex items-center justify-center rounded-full text-white text-3xl font-light transition-all active:scale-90 ${lightboxIndex === lightboxImages.length - 1 ? 'bg-white/10 opacity-30 cursor-not-allowed' : 'bg-white/20 hover:bg-white/35'}`} onClick={lightboxNext} disabled={lightboxIndex === lightboxImages.length - 1} aria-label="\u1ea2nh ti\u1ebfp theo">\u203a</button>
                     </div>
                     {lightboxImages.length > 1 && lightboxImages.length <= 10 && (
                         <div className="flex justify-center gap-2 py-3 bg-black/80">
-                            {lightboxImages.map((_, i) => (
-                                <button key={i} onClick={() => setLightboxIndex(i)} className={`w-2 h-2 rounded-full transition-all ${i === lightboxIndex ? 'bg-white scale-125' : 'bg-white/40'}`} />
-                            ))}
+                            {lightboxImages.map((_, i) => <button key={i} onClick={() => setLightboxIndex(i)} className={`w-2 h-2 rounded-full transition-all ${i === lightboxIndex ? 'bg-white scale-125' : 'bg-white/40'}`} />)}
                         </div>
                     )}
                     {lightboxImages.length > 1 && lightboxIndex === 0 && (
                         <div className="absolute bottom-16 left-0 right-0 flex justify-center pointer-events-none">
-                            <span className="bg-black/50 text-white/70 text-xs px-3 py-1 rounded-full">👉 Vuốt để xem ảnh tiếp theo</span>
+                            <span className="bg-black/50 text-white/70 text-xs px-3 py-1 rounded-full">\ud83d\udc49 Vu\u1ed1t \u0111\u1ec3 xem \u1ea3nh ti\u1ebfp theo</span>
                         </div>
                     )}
                 </div>
             )}
 
-            {/* ── Report Modal ─────────────────────────────────── */}
-            {data && (
-                <ReportModal
-                    restaurantId={data.id}
-                    restaurantName={data.title.rendered}
-                    isOpen={isReportModalOpen}
-                    onClose={() => setIsReportModalOpen(false)}
-                />
-            )}
+            {data && <ReportModal restaurantId={data.id} restaurantName={data.title.rendered} isOpen={isReportModalOpen} onClose={() => setIsReportModalOpen(false)} />}
         </div>
     );
 }
