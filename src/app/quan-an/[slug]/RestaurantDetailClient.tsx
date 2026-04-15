@@ -197,12 +197,14 @@ export default function RestaurantDetailClient({ data, slug }: RestaurantDetailC
     };
 
     const hasFirebaseData = ratingStats !== null && ratingStats.count > 0;
+    // Curve B: avg(1-5) → display(4-10). Formula: 4.0 + (avg - 1) × 1.5
+    const curve = (total: number, count: number) => r1(4.0 + (((total || 0) / count) - 1) * 1.5);
     const firebaseScores = hasFirebaseData ? {
-        taste:   r1(((ratingStats!.totalTaste || 0) / ratingStats!.count) * 2),
-        price:   r1(((ratingStats!.totalPrice || 0) / ratingStats!.count) * 2),
-        service: r1(((ratingStats!.totalService || 0) / ratingStats!.count) * 2),
-        space:   r1(((ratingStats!.totalSpace || 0) / ratingStats!.count) * 2),
-        overall: r1(((ratingStats!.totalOverall || 0) / ratingStats!.count) * 2),
+        taste:   curve(ratingStats!.totalTaste, ratingStats!.count),
+        price:   curve(ratingStats!.totalPrice, ratingStats!.count),
+        service: curve(ratingStats!.totalService, ratingStats!.count),
+        space:   curve(ratingStats!.totalSpace, ratingStats!.count),
+        overall: curve(ratingStats!.totalOverall, ratingStats!.count),
     } : null;
 
     const adminTaste   = Number(data.rating_food || 0);
