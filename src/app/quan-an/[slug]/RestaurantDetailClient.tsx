@@ -382,7 +382,7 @@ export default function RestaurantDetailClient({ data, slug }: RestaurantDetailC
                                             )}
                                             <button onClick={handleSubmit} disabled={!isAllFilled || isSubmitting || !fingerprint}
                                                 className={`flex-1 font-bold py-3 rounded-xl transition-all text-sm ${isAllFilled && !isSubmitting && fingerprint ? 'bg-orange-500 hover:bg-orange-600 text-white shadow-md shadow-orange-200 hover:shadow-lg active:scale-95' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}>
-                                                {isSubmitting ? '&#9203; Đang gửi...' : isEditMode ? '&#128190; Lưu thay đổi' : '&#127775; Gửi đánh giá'}
+                                                {isSubmitting ? '⏳ Đang gửi...' : isEditMode ? '💾 Lưu thay đổi' : '🌟 Gửi đánh giá'}
                                             </button>
                                         </div>
                                         {!isAllFilled && <p className="text-center text-xs text-gray-400 mt-2">Vui lòng chấm đủ {CRITERIA.filter(c => criteria[c.key] === 0).length} tiêu chí còn lại để gửi</p>}

@@ -42,13 +42,24 @@ const getBadgeStyle = (label: string) => {
 };
 
 export const RestaurantCard: React.FC<RestaurantCardProps> = ({ data, firebaseRating }) => {
-    // Firebase rating (ưu tiên) hoặc admin rating
-    const fbAvg = firebaseRating && firebaseRating.count > 0
-        ? (firebaseRating.totalScore / firebaseRating.count).toFixed(1)
-        : null;
-    const fbCount = firebaseRating?.count ?? 0;
+    // Curve B helper: avg(1-5) → display(4-10)
+    const r1 = (v: number) => Math.round(v * 10) / 10;
+    const curve = (avg5: number) => r1(4.0 + (avg5 - 1) * 1.5);
 
-    // Admin rating fallback
+    // Firebase rating (ưu tiên) – multi-criteria schema
+    const fbCount = firebaseRating?.count ?? 0;
+    let fbScore: string | null = null;
+    if (firebaseRating && fbCount > 0) {
+        const avg5 = (
+            (firebaseRating.totalTaste || 0) +
+            (firebaseRating.totalPrice || 0) +
+            (firebaseRating.totalService || 0) +
+            (firebaseRating.totalSpace || 0)
+        ) / (4 * fbCount);
+        fbScore = curve(avg5).toFixed(1);
+    }
+
+    // Admin rating fallback (thang 10 sẵn từ WP)
     const adminRatings = [
         Number(data.rating_food || 0),
         Number(data.rating_price || 0),
@@ -59,9 +70,9 @@ export const RestaurantCard: React.FC<RestaurantCardProps> = ({ data, firebaseRa
         ? (adminRatings.reduce((a, b) => a + b, 0) / adminRatings.length).toFixed(1)
         : null;
 
-    // Hiển thị Firebase rating nếu có, ngược lại dùng admin rating. Nếu không có gì thì hiện 0.0
-    const displayRating = fbAvg || adminAvg || "0.0";
-    const displayCount = fbCount > 0 ? fbCount : 0;
+    // Ưu tiên Firebase → Admin → null (ẩn badge)
+    const displayRating = fbScore || adminAvg || null;
+    const displayCount = fbCount;
 
     const imageUrl = data.featured_media_url || 'https://placehold.co/600x400?text=No+Image';
     const isClosed = (data as any).is_closed === true;
@@ -89,12 +100,19 @@ export const RestaurantCard: React.FC<RestaurantCardProps> = ({ data, firebaseRa
                     <div className="absolute inset-0 bg-gray-900/30" />
                 )}
 
-                {/* Rating Badge - Luôn hiện đỏ/cam để nổi bật */}
-                <div className="absolute bottom-1 right-1 md:top-3 md:right-3 md:bottom-auto bg-white/90 md:bg-orange-500 md:text-white text-orange-600 px-1.5 py-0.5 md:px-2 md:py-1 rounded md:rounded-lg font-bold text-[10px] md:text-xs shadow-sm flex items-center gap-1 backdrop-blur-sm z-10">
-                    <span>★</span>
-                    <span>{displayRating}</span>
-                    <span className="opacity-80 ml-0.5">({displayCount})</span>
-                </div>
+                {/* Rating Badge */}
+                {displayRating ? (
+                    <div className="absolute bottom-1 right-1 md:top-3 md:right-3 md:bottom-auto bg-white/90 md:bg-orange-500 md:text-white text-orange-600 px-1.5 py-0.5 md:px-2 md:py-1 rounded md:rounded-lg font-bold text-[10px] md:text-xs shadow-sm flex items-center gap-1 backdrop-blur-sm z-10">
+                        <span>★</span>
+                        <span>{displayRating}</span>
+                        {displayCount > 0 && <span className="opacity-80 ml-0.5">({displayCount})</span>}
+                    </div>
+                ) : (
+                    <div className="absolute bottom-1 right-1 md:top-3 md:right-3 md:bottom-auto bg-white/90 md:bg-green-500 md:text-white text-green-600 px-1.5 py-0.5 md:px-2 md:py-1 rounded md:rounded-lg font-bold text-[10px] md:text-xs shadow-sm flex items-center gap-1 backdrop-blur-sm z-10">
+                        <span>🆕</span>
+                        <span>Mới</span>
+                    </div>
+                )}
 
                 {/* Badge "ĐÃ ĐÓNG CỬA" */}
                 {isClosed && (

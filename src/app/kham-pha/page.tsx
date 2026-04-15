@@ -114,7 +114,7 @@ function ExplorePageContent() {
     const [loading, setLoading] = useState(() => !cachedState);
     const [showMobileFilter, setShowMobileFilter] = useState(false);
 
-    // Firebase ratings: map restaurantId -> { totalScore, count }
+    // Firebase ratings: map restaurantId -> { count, totalTaste, totalPrice, totalService, totalSpace, totalOverall }
     const [ratingsMap, setRatingsMap] = useState<Record<number, FirebaseRating>>({});
 
     /**
@@ -385,12 +385,14 @@ function ExplorePageContent() {
 
             case 'highest_rated':
                 return arr.sort((a, b) => {
-                    const ratingA = ratingsMap[a.id]?.totalScore && ratingsMap[a.id]?.count
-                        ? ratingsMap[a.id].totalScore / ratingsMap[a.id].count
-                        : null;
-                    const ratingB = ratingsMap[b.id]?.totalScore && ratingsMap[b.id]?.count
-                        ? ratingsMap[b.id].totalScore / ratingsMap[b.id].count
-                        : null;
+                    const getCurveScore = (id: number) => {
+                        const r = ratingsMap[id];
+                        if (!r || !r.count) return null;
+                        const avg5 = ((r.totalTaste || 0) + (r.totalPrice || 0) + (r.totalService || 0) + (r.totalSpace || 0)) / (4 * r.count);
+                        return 4.0 + (avg5 - 1) * 1.5;
+                    };
+                    const ratingA = getCurveScore(a.id);
+                    const ratingB = getCurveScore(b.id);
                     if (ratingA === null && ratingB === null) return 0;
                     if (ratingA === null) return 1;
                     if (ratingB === null) return -1;
