@@ -255,19 +255,17 @@ function shuffleArray<T>(array: T[]): T[] {
 }
 
 /**
- * Fetch quán top rated với ưu tiên manual Top 5
- * Logic: 
- * 1. Lấy quán có is_manual_top_5 = true, sort theo manual_top_5_order ASC
- * 2. Nếu chưa đủ 5, lấy tiếp quán có rating >= 4.5
+ * Fetch quán Top 5 - CHỈ lấy quán được admin ghim thủ công (is_manual_top_5 = true).
+ * KHÔNG tự động lấp đầy bằng rating cao.
+ * Nếu chỉ có 3 quán được ghim thì chỉ trả về 3 quán.
  */
 export async function fetchTopRatedRestaurants(limit: number = 5): Promise<Restaurant[]> {
-    // Lấy nhiều quán để có đủ dữ liệu
     const restaurants = await fetchRestaurants({
         per_page: 200
     });
 
-    // 1. Lấy quán được ghim thủ công (is_manual_top_5 = true)
-    const manualTop5 = restaurants
+    // CHỈ lấy quán được ghim thủ công, sắp xếp theo thứ tự ưu tiên
+    const manualTop = restaurants
         .filter((r: any) => r.is_manual_top_5 === true)
         .sort((a: any, b: any) => {
             const orderA = a.manual_top_5_order || 999;
@@ -275,36 +273,7 @@ export async function fetchTopRatedRestaurants(limit: number = 5): Promise<Resta
             return orderA - orderB; // ASC: 1, 2, 3, 4, 5
         });
 
-    // 2. Nếu đã đủ limit, return luôn
-    if (manualTop5.length >= limit) {
-        return manualTop5.slice(0, limit);
-    }
-
-    // 3. Nếu chưa đủ, lấy thêm quán có rating cao
-    const manualIds = new Set(manualTop5.map(r => r.id));
-
-    const highRatedRestaurants = restaurants
-        .filter(r => !manualIds.has(r.id)) // Loại bỏ quán đã có trong manual
-        .map(r => {
-            const ratings = [
-                Number(r.rating_food || 0),
-                Number(r.rating_price || 0),
-                Number(r.rating_service || 0),
-                Number(r.rating_ambiance || 0),
-            ].filter(rating => rating > 0);
-
-            const avgRating = ratings.length > 0
-                ? ratings.reduce((a, b) => a + b, 0) / ratings.length
-                : 0;
-
-            return { ...r, avgRating };
-        })
-        .filter(r => r.avgRating >= 4.5) // Chỉ lấy quán có rating >= 4.5
-        .sort((a: any, b: any) => b.avgRating - a.avgRating); // Sort DESC by rating
-
-    // 4. Kết hợp: Manual Top 5 + High Rated
-    const combined = [...manualTop5, ...highRatedRestaurants];
-    return combined.slice(0, limit);
+    return manualTop.slice(0, limit);
 }
 
 /**
